@@ -91,3 +91,50 @@ describe("useListMembers", () => {
     expect(result.current).toBeUndefined();
   });
 });
+
+describe("useIsMember — deny render path", () => {
+  it("loaded FALSE: renders the deny path (false returned, not undefined)", () => {
+    mockUseQuery.mockReturnValue(false);
+    const args = { memberRef: "user:1", resourceRef: "org:1", relation: "admin" };
+    const { result } = renderHook(() => useIsMember(isMemberRef, args));
+    expect(mockUseQuery).toHaveBeenCalledWith(isMemberRef, args);
+    expect(result.current).toBe(false);
+  });
+});
+
+describe("useMembers — page shape fields", () => {
+  it("returns a page with page, isDone, and continueCursor fields", () => {
+    const page = {
+      page: [{ resourceRef: "org:1", relation: "member" }],
+      isDone: true,
+      continueCursor: "cursor_abc",
+    };
+    mockUseQuery.mockReturnValue(page);
+    const { result } = renderHook(() => useMembers(membersRef, { memberRef: "user:1" }));
+    expect(result.current).not.toBeUndefined();
+    expect(Array.isArray(result.current?.page)).toBe(true);
+    expect(typeof result.current?.isDone).toBe("boolean");
+    expect(typeof result.current?.continueCursor).toBe("string");
+    expect(result.current?.continueCursor).toBe("cursor_abc");
+  });
+});
+
+describe("useListMembers — page shape fields", () => {
+  it("returns a page with page, isDone, and continueCursor fields", () => {
+    const page = {
+      page: [{ memberRef: "user:1", memberKind: "user", relation: "admin" }],
+      isDone: false,
+      continueCursor: "cursor_xyz",
+    };
+    mockUseQuery.mockReturnValue(page);
+    const { result } = renderHook(() =>
+      useListMembers(listMembersRef, { resourceRef: "org:1", relation: "admin" }),
+    );
+    expect(result.current).not.toBeUndefined();
+    expect(Array.isArray(result.current?.page)).toBe(true);
+    expect(typeof result.current?.isDone).toBe("boolean");
+    expect(result.current?.isDone).toBe(false);
+    expect(typeof result.current?.continueCursor).toBe("string");
+    expect(result.current?.continueCursor).toBe("cursor_xyz");
+  });
+});

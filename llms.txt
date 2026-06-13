@@ -2,8 +2,8 @@
 
 > Auth-agnostic membership and relationship graph (ReBAC tuples), as a Convex component
 
-`@vllnt/convex-memberships` is a publishable Convex component. It targets `convex@^1.36.1`.
-It stores one sandboxed table - `memberships`, holding flat ReBAC edges `(memberRef, resourceRef, relation)` with an opaque, host-classified `memberKind` (default `"user"`) and an optional opaque `status`. It lists a resource's members and a member's resources (both paginated), checks a membership (bounded `by_member_resource` lookup), changes a relation, and exposes full docs (`createdAt`, `status`) via `documents`. Edges are FLAT - no transitive expansion (`expandMembers` / `resolve` is vNext). The host owns identity, auth, and the rich entity; the component owns only the edges. `memberRef`, `resourceRef`, `relation`, `memberKind`, and `status` are opaque host strings the component never inspects.
+`@vllnt/convex-memberships` is a publishable Convex component. It targets `convex@^1.41.0`.
+It stores one sandboxed table - `memberships`, holding flat ReBAC edges `(memberRef, resourceRef, relation)` with an opaque, host-classified `memberKind` (default `"user"`) and an optional opaque `status`. It lists a resource's members and a member's resources (both paginated), checks a membership (bounded `by_member_resource` lookup), changes a relation, and exposes full docs (`createdAt`, `status`) via `documents`. Edges are FLAT - no transitive expansion (`expandMembers` / `resolve` is vNext). The host owns identity, auth, and the rich entity; the component owns only the edges. `memberRef`, `resourceRef`, `relation`, `memberKind`, and `status` are opaque host strings the component never inspects. `add` is tuple-idempotent and patches `memberKind`/`status` on re-add. `setRelation` requires the source edge to exist before applying a same-relation no-op. The unscoped `isMember` (no `relation`) returns true for any stored relation — do not use it as an authz gate without enumerating acceptable relations.
 
 ## Docs
 

@@ -555,3 +555,257 @@ describe("memberships — client options (custom relation + kind)", () => {
     ]);
   });
 });
+
+describe("memberships — isMember DENY proofs", () => {
+  test("(a) wrong subject: user_2 has no tuple → false", async () => {
+    const t = setup();
+    await t.mutation(api.example.add, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      relation: "member",
+    });
+    expect(
+      await t.query(api.example.isMember, {
+        memberRef: "user_2",
+        resourceRef: "org_1",
+        relation: "member",
+      }),
+    ).toBe(false);
+  });
+
+  test("(b) wrong resource: org_2 not tupled → false", async () => {
+    const t = setup();
+    await t.mutation(api.example.add, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      relation: "member",
+    });
+    expect(
+      await t.query(api.example.isMember, {
+        memberRef: "user_1",
+        resourceRef: "org_2",
+        relation: "member",
+      }),
+    ).toBe(false);
+  });
+
+  test("(c) standalone post-remove → false", async () => {
+    const t = setup();
+    await t.mutation(api.example.add, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      relation: "member",
+    });
+    await t.mutation(api.example.remove, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      relation: "member",
+    });
+    expect(
+      await t.query(api.example.isMember, {
+        memberRef: "user_1",
+        resourceRef: "org_1",
+        relation: "member",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("memberships — add re-add with different memberKind patches the row", () => {
+  test("re-add with a different memberKind updates the stored kind (patch contract)", async () => {
+    const t = setup();
+    const id = await t.mutation(api.example.add, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      relation: "member",
+      memberKind: "user",
+    });
+    const id2 = await t.mutation(api.example.add, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      relation: "member",
+      memberKind: "service-account",
+    });
+    expect(id2).toBe(id);
+    const list = await t.query(api.example.listMembers, {
+      resourceRef: "org_1",
+      paginationOpts: PAGE,
+    });
+    expect(list.page).toHaveLength(1);
+    expect(list.page[0].memberKind).toBe("service-account");
+  });
+});
+
+describe("memberships — setRelation on non-existent edge", () => {
+  test("setRelation(m,r,'x','x') on a non-existent edge → NOT_FOUND (not ok:true)", async () => {
+    const t = setup();
+    const r = await t.mutation(api.example.setRelation, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      fromRelation: "x",
+      toRelation: "x",
+    });
+    expect(r).toEqual({ ok: false, reason: "NOT_FOUND" });
+  });
+
+  test("setRelation rejected-EXISTS leaves the original fromRelation edge intact", async () => {
+    const t = setup();
+    await t.mutation(api.example.add, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      relation: "member",
+    });
+    await t.mutation(api.example.add, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      relation: "admin",
+    });
+    const r = await t.mutation(api.example.setRelation, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      fromRelation: "member",
+      toRelation: "admin",
+    });
+    expect(r).toEqual({ ok: false, reason: "EXISTS" });
+    expect(
+      await t.query(api.example.isMember, {
+        memberRef: "user_1",
+        resourceRef: "org_1",
+        relation: "member",
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("memberships — isolation: listMembers and members scoped per resource/member", () => {
+  test("listMembers(org_2) excludes org_1's members", async () => {
+    const t = setup();
+    await t.mutation(api.example.add, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      relation: "member",
+    });
+    await t.mutation(api.example.add, {
+      memberRef: "user_2",
+      resourceRef: "org_2",
+      relation: "admin",
+    });
+    const org2Members = await t.query(api.example.listMembers, {
+      resourceRef: "org_2",
+      paginationOpts: PAGE,
+    });
+    expect(org2Members.page).toHaveLength(1);
+    expect(org2Members.page[0].memberRef).toBe("user_2");
+    const org1Members = await t.query(api.example.listMembers, {
+      resourceRef: "org_1",
+      paginationOpts: PAGE,
+    });
+    expect(org1Members.page).toHaveLength(1);
+    expect(org1Members.page[0].memberRef).toBe("user_1");
+  });
+
+  test("members(user_2) excludes user_1's resources", async () => {
+    const t = setup();
+    await t.mutation(api.example.add, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      relation: "member",
+    });
+    await t.mutation(api.example.add, {
+      memberRef: "user_2",
+      resourceRef: "org_2",
+      relation: "admin",
+    });
+    const user2Resources = await t.query(api.example.members, {
+      memberRef: "user_2",
+      paginationOpts: PAGE,
+    });
+    expect(user2Resources.page).toHaveLength(1);
+    expect(user2Resources.page[0].resourceRef).toBe("org_2");
+  });
+});
+
+describe("memberships — documents branching", () => {
+  test("with both resourceRef and memberRef: resource wins (resource-scoped result)", async () => {
+    const t = setup();
+    await t.mutation(api.example.add, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      relation: "member",
+    });
+    await t.mutation(api.example.add, {
+      memberRef: "user_2",
+      resourceRef: "org_2",
+      relation: "admin",
+    });
+    const docs = await t.query(api.example.documents, {
+      resourceRef: "org_1",
+      memberRef: "user_2",
+      paginationOpts: PAGE,
+    });
+    expect(docs.page).toHaveLength(1);
+    expect(docs.page[0].resourceRef).toBe("org_1");
+    expect(docs.page[0].memberRef).toBe("user_1");
+  });
+
+  test("resourceRef-only branch: returns docs scoped to that resource", async () => {
+    const t = setup();
+    await t.mutation(api.example.add, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      relation: "member",
+    });
+    await t.mutation(api.example.add, {
+      memberRef: "user_2",
+      resourceRef: "org_2",
+      relation: "member",
+    });
+    const docs = await t.query(api.example.documents, {
+      resourceRef: "org_1",
+      paginationOpts: PAGE,
+    });
+    expect(docs.page).toHaveLength(1);
+    expect(docs.page[0].resourceRef).toBe("org_1");
+  });
+
+  test("listMembers page shape: has page, isDone, continueCursor fields", async () => {
+    const t = setup();
+    await t.mutation(api.example.add, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      relation: "member",
+    });
+    const result = await t.query(api.example.listMembers, {
+      resourceRef: "org_1",
+      paginationOpts: PAGE,
+    });
+    expect(Array.isArray(result.page)).toBe(true);
+    expect(typeof result.isDone).toBe("boolean");
+    expect(typeof result.continueCursor).toBe("string");
+    expect(result.page[0]).toMatchObject({
+      memberRef: expect.any(String) as string,
+      memberKind: expect.any(String) as string,
+      relation: expect.any(String) as string,
+    });
+  });
+
+  test("members page shape: has page, isDone, continueCursor fields", async () => {
+    const t = setup();
+    await t.mutation(api.example.add, {
+      memberRef: "user_1",
+      resourceRef: "org_1",
+      relation: "member",
+    });
+    const result = await t.query(api.example.members, {
+      memberRef: "user_1",
+      paginationOpts: PAGE,
+    });
+    expect(Array.isArray(result.page)).toBe(true);
+    expect(typeof result.isDone).toBe("boolean");
+    expect(typeof result.continueCursor).toBe("string");
+    expect(result.page[0]).toMatchObject({
+      resourceRef: expect.any(String) as string,
+      relation: expect.any(String) as string,
+    });
+  });
+});

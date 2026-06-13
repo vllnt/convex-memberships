@@ -32,8 +32,10 @@ Transitive expansion is planned for vNext.
 - **Flat ReBAC tuples** — `(memberRef, resourceRef, relation)` with an opaque,
   host-classified `memberKind` (defaults to `"user"`) and an optional opaque
   `status` lifecycle marker.
-- **Idempotent edges** — `add` dedupes on the full tuple and returns the existing
-  id; no duplicate rows.
+- **Idempotent edges** — `add` dedupes on the full tuple: if the exact
+  `(memberRef, resourceRef, relation)` already exists, the existing id is returned
+  **and** `memberKind` / `status` are patched to the incoming values. Re-adding
+  with a different `memberKind` updates the stored classification.
 - **Paginated listing** — members of a resource, and resources of a member, both
   paginated (`{ numItems, cursor }` → `{ page, isDone, continueCursor }`) for
   guild/workspace scale.
@@ -41,7 +43,9 @@ Transitive expansion is planned for vNext.
 - **Bounded membership checks** — exact-relation, or any-relation via the
   `by_member_resource` index (not a full member scan).
 - **Relation transitions** — move an edge from one relation to another, guarded
-  against collisions; a no-op when from equals to.
+  against collisions. The source edge must exist; `setRelation(m, r, "x", "x")`
+  on a non-existent edge returns `NOT_FOUND`, not a silent no-op. A no-op
+  `{ ok: true }` fires only when the edge exists and `fromRelation === toRelation`.
 - **Auditable removal** — `remove` returns `{ removed }`.
 - **Document view** — `documents` exposes the stored `createdAt` and `status`.
 - **Opaque refs** — `memberRef`, `resourceRef`, `relation`, `memberKind`, and
@@ -109,7 +113,7 @@ See [docs/API.md](docs/API.md). Summary:
 
 | Method | Kind | Result |
 |--------|------|--------|
-| `add(ctx, memberRef, resourceRef, relation?, memberKind?, status?)` | mutation | `id` (idempotent — existing id if held) |
+| `add(ctx, memberRef, resourceRef, relation?, memberKind?, status?)` | mutation | `id` (tuple-idempotent — existing id; patches `memberKind`/`status` on re-add) |
 | `remove(ctx, memberRef, resourceRef, relation?)` | mutation | `{ removed }` (idempotent) |
 | `setRelation(ctx, memberRef, resourceRef, fromRelation, toRelation)` | mutation | `{ ok, reason? }` (`NOT_FOUND` \| `EXISTS`) |
 | `listMembers(ctx, resourceRef, paginationOpts, relation?)` | query | `Page<MemberEntry>` |
@@ -172,6 +176,13 @@ host reaches them only through the exported functions. `memberRef`,
 `resourceRef`, and `relation` are opaque; the component never inspects or
 de-references them.
 
+**`isMember` — unscoped path footgun.** When called without `relation`,
+`isMember` returns `true` for **any** relation stored between the pair
+(e.g. `"invited"`, `"suspended"`, `"banned"`). Do **not** use the unscoped path
+as an authorization gate without first enumerating every relation your policy
+considers sufficient for the guarded action. Prefer the scoped path
+(`relation` provided) for authz checks.
+
 ## Testing
 
 ```bash
@@ -202,7 +213,7 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-06-12
+## [0.1.0] - 2026-06-13
 
 ### Added
 
@@ -211,10 +222,10 @@ All notable changes to this project are documented here. The format is based on
 - Sandboxed `memberships` table holding `(memberRef, resourceRef, relation)`
   edges with an opaque, host-classified `memberKind` and an optional opaque
   `status` lifecycle marker.
-- `Memberships` client: `add` (idempotent, takes optional `status`), `remove`
-  (returns `{ removed }`), `setRelation`, `listMembers` (paginated), `members`
-  (paginated), `isMember` (bounded `by_member_resource` lookup), and `documents`
-  (paginated doc view exposing `createdAt` + `status`).
+- `Memberships` client: `add` (idempotent, patches `memberKind`/`status` on
+  re-add), `remove` (returns `{ removed }`), `setRelation`, `listMembers`
+  (paginated), `members` (paginated), `isMember` (bounded `by_member_resource`
+  lookup), and `documents` (paginated doc view exposing `createdAt` + `status`).
 - Configurable `defaultRelation` and `defaultMemberKind`.
 - Indexes: `by_member`, `by_resource`, `by_resource_relation`,
   `by_member_resource`, `by_tuple`.
@@ -223,8 +234,23 @@ All notable changes to this project are documented here. The format is based on
 
 - `memberKind` is an opaque `v.string()` (default `"user"`) — no closed union,
   so it makes no domain assumption.
-- `setRelation` is a no-op `{ ok: true }` when `fromRelation === toRelation`;
-  its `reason` is the typed union `"NOT_FOUND" | "EXISTS"`.
+- `add` is tuple-idempotent: if the exact `(memberRef, resourceRef, relation)`
+  tuple already exists, the existing id is returned **and** `memberKind` /
+  `status` are patched to the incoming values. Re-adding with a different
+  `memberKind` updates the stored classification.
+- `setRelation` checks whether the source `fromRelation` edge exists **before**
+  applying the same-relation no-op. Calling `setRelation(m, r, "x", "x")` on a
+  non-existent edge returns `{ ok: false, reason: "NOT_FOUND" }`, not
+  `{ ok: true }`. The `{ ok: true }` no-op only fires when the edge exists and
+  `fromRelation === toRelation`. `reason` is the typed union
+  `"NOT_FOUND" | "EXISTS"`.
+- **Security — unscoped `isMember`:** when called without `relation`, `isMember`
+  returns `true` for **any** stored relation between the pair. Do not use the
+  unscoped path as an authz gate without enumerating acceptable relations. The
+  scoped path (`relation` provided) is safe for exact-relation authz checks.
+- `MembersRef` / `ListMembersRef` hook-ref types are now typed with concrete
+  `Page<ResourceEntry>` / `Page<MemberEntry>` return generics (previously
+  `unknown`), giving hosts full type safety.
 - Tuple reads use `.first()` so a stray duplicate row degrades gracefully rather
   than hard-throwing.
 - Transitive expansion (`expandMembers` / `resolve`) is deferred to vNext; edges
@@ -263,10 +289,12 @@ the last page.
 ### `add(ctx, memberRef, resourceRef, relation?, memberKind?, status?) → id`
 
 Add the edge `(memberRef, resourceRef, relation)`, classified by the opaque
-`memberKind` and optionally stamped with an opaque `status`. Idempotent: if the
-exact tuple already exists, returns the existing id without inserting a second
-row. `relation` defaults to `defaultRelation`, `memberKind` to
-`defaultMemberKind` (`"user"`).
+`memberKind` and optionally stamped with an opaque `status`. Idempotent on the
+tuple `(memberRef, resourceRef, relation)`: if the exact tuple already exists,
+the existing id is returned **and** `memberKind` / `status` are patched to the
+incoming values. Re-adding with a different `memberKind` updates the stored
+classification — the id is stable, the classification is current. `relation`
+defaults to `defaultRelation`, `memberKind` to `defaultMemberKind` (`"user"`).
 
 ### `remove(ctx, memberRef, resourceRef, relation?) → { removed }`
 
@@ -276,11 +304,17 @@ existed.
 
 ### `setRelation(ctx, memberRef, resourceRef, fromRelation, toRelation) → { ok, reason? }`
 
-Move the member's edge on the resource from `fromRelation` to `toRelation`.
-When `fromRelation === toRelation` it is a no-op `{ ok: true }`. Returns
-`{ ok: false, reason: "NOT_FOUND" }` if the `fromRelation` edge does not exist,
-or `{ ok: false, reason: "EXISTS" }` if a `toRelation` edge already exists;
-otherwise `{ ok: true }`. `reason` is the typed union `"NOT_FOUND" | "EXISTS"`.
+Move the member's edge on the resource from `fromRelation` to `toRelation`. The
+`fromRelation` edge **must exist** — if it does not, returns
+`{ ok: false, reason: "NOT_FOUND" }` regardless of whether `fromRelation` equals
+`toRelation`. When the edge exists and `fromRelation === toRelation`, it is a
+no-op `{ ok: true }`. Returns `{ ok: false, reason: "EXISTS" }` if a
+`toRelation` edge already exists; otherwise patches the relation and returns
+`{ ok: true }`. `reason` is the typed union `"NOT_FOUND" | "EXISTS"`.
+
+> **Note:** `setRelation(m, r, "x", "x")` on a non-existent edge returns
+> `{ ok: false, reason: "NOT_FOUND" }`, not `{ ok: true }`. The no-op only
+> fires when the source edge is confirmed to exist.
 
 ## Queries
 
@@ -298,6 +332,14 @@ One page of resources `memberRef` relates to, as `{ resourceRef, relation }`.
 Whether `memberRef` relates to `resourceRef`. With `relation`, checks that exact
 edge; without, a bounded `by_member_resource` index lookup checks whether any
 relation connects the two (not a full member scan).
+
+> **Security warning — unscoped path.** When `relation` is omitted, this method
+> returns `true` for **any** relation stored between the pair (e.g. `"invited"`,
+> `"suspended"`, `"banned"`). Do **not** use the unscoped path as an
+> authorization gate without first enumerating every relation your policy
+> considers sufficient for the guarded action. Use the scoped path (`relation`
+> provided) for authz checks, or enumerate acceptable relations explicitly before
+> calling.
 
 ### `documents(ctx, paginationOpts, filter?) → Page<MembershipDoc>`
 
@@ -645,6 +687,15 @@ export class Memberships {
   /**
    * Whether `memberRef` relates to `resourceRef`. With `relation`, checks that
    * exact edge; without, checks any relation between the two.
+   *
+   * @remarks
+   * **Security warning — unscoped path.** When `relation` is omitted this
+   * method returns `true` for **any** relation stored between the pair
+   * (e.g. `"invited"`, `"suspended"`, `"banned"`). Do **not** use the
+   * unscoped path as an authorization gate without first enumerating every
+   * relation your policy considers sufficient for the guarded action. Use the
+   * scoped path (`relation` provided) for authz checks, or enumerate
+   * acceptable relations explicitly before calling.
    */
   isMember(
     ctx: RunQueryCtx,
@@ -838,6 +889,10 @@ export const add = mutation({
       )
       .first();
     if (existing !== null) {
+      await ctx.db.patch(existing._id, {
+        memberKind: args.memberKind,
+        status: args.status,
+      });
       return existing._id;
     }
     return await ctx.db.insert("memberships", {
@@ -885,9 +940,6 @@ export const setRelation = mutation({
   },
   returns: setRelationResult,
   handler: async (ctx, args): Promise<SetRelationResult> => {
-    if (args.fromRelation === args.toRelation) {
-      return { ok: true };
-    }
     const from = await ctx.db
       .query("memberships")
       .withIndex("by_tuple", (q) =>
@@ -899,6 +951,9 @@ export const setRelation = mutation({
       .first();
     if (from === null) {
       return { ok: false, reason: "NOT_FOUND" };
+    }
+    if (args.fromRelation === args.toRelation) {
+      return { ok: true };
     }
     const taken = await ctx.db
       .query("memberships")
@@ -989,6 +1044,19 @@ export const members = query({
   },
 });
 
+/**
+ * Whether `memberRef` relates to `resourceRef` under the given `relation`, or
+ * under **any** stored relation when `relation` is omitted.
+ *
+ * @remarks
+ * **Security warning — unscoped path.** When `relation` is omitted this
+ * function returns `true` for **any** relation stored between the pair
+ * (e.g. `"invited"`, `"suspended"`, `"banned"`). Do **not** use the
+ * unscoped path as an authorization gate without first enumerating every
+ * relation your policy considers sufficient for the guarded action. Use the
+ * scoped path (`relation` provided) for authz checks, or enumerate
+ * acceptable relations explicitly before calling.
+ */
 export const isMember = query({
   args: {
     memberRef: v.string(),

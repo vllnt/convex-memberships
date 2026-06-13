@@ -24,8 +24,10 @@ Transitive expansion is planned for vNext.
 - **Flat ReBAC tuples** — `(memberRef, resourceRef, relation)` with an opaque,
   host-classified `memberKind` (defaults to `"user"`) and an optional opaque
   `status` lifecycle marker.
-- **Idempotent edges** — `add` dedupes on the full tuple and returns the existing
-  id; no duplicate rows.
+- **Idempotent edges** — `add` dedupes on the full tuple: if the exact
+  `(memberRef, resourceRef, relation)` already exists, the existing id is returned
+  **and** `memberKind` / `status` are patched to the incoming values. Re-adding
+  with a different `memberKind` updates the stored classification.
 - **Paginated listing** — members of a resource, and resources of a member, both
   paginated (`{ numItems, cursor }` → `{ page, isDone, continueCursor }`) for
   guild/workspace scale.
@@ -33,7 +35,9 @@ Transitive expansion is planned for vNext.
 - **Bounded membership checks** — exact-relation, or any-relation via the
   `by_member_resource` index (not a full member scan).
 - **Relation transitions** — move an edge from one relation to another, guarded
-  against collisions; a no-op when from equals to.
+  against collisions. The source edge must exist; `setRelation(m, r, "x", "x")`
+  on a non-existent edge returns `NOT_FOUND`, not a silent no-op. A no-op
+  `{ ok: true }` fires only when the edge exists and `fromRelation === toRelation`.
 - **Auditable removal** — `remove` returns `{ removed }`.
 - **Document view** — `documents` exposes the stored `createdAt` and `status`.
 - **Opaque refs** — `memberRef`, `resourceRef`, `relation`, `memberKind`, and
@@ -60,7 +64,7 @@ status?, createdAt}`, indexed `by_member`, `by_resource`,
 pnpm add @vllnt/convex-memberships
 ```
 
-Peer dependency: `convex@^1.36.1`.
+Peer dependency: `convex@^1.41.0`.
 
 ## Usage
 
@@ -101,7 +105,7 @@ See [docs/API.md](docs/API.md). Summary:
 
 | Method | Kind | Result |
 |--------|------|--------|
-| `add(ctx, memberRef, resourceRef, relation?, memberKind?, status?)` | mutation | `id` (idempotent — existing id if held) |
+| `add(ctx, memberRef, resourceRef, relation?, memberKind?, status?)` | mutation | `id` (tuple-idempotent — existing id; patches `memberKind`/`status` on re-add) |
 | `remove(ctx, memberRef, resourceRef, relation?)` | mutation | `{ removed }` (idempotent) |
 | `setRelation(ctx, memberRef, resourceRef, fromRelation, toRelation)` | mutation | `{ ok, reason? }` (`NOT_FOUND` \| `EXISTS`) |
 | `listMembers(ctx, resourceRef, paginationOpts, relation?)` | query | `Page<MemberEntry>` |
@@ -163,6 +167,13 @@ opaque `memberRef` / `resourceRef` strings. Component tables are sandboxed — t
 host reaches them only through the exported functions. `memberRef`,
 `resourceRef`, and `relation` are opaque; the component never inspects or
 de-references them.
+
+**`isMember` — unscoped path footgun.** When called without `relation`,
+`isMember` returns `true` for **any** relation stored between the pair
+(e.g. `"invited"`, `"suspended"`, `"banned"`). Do **not** use the unscoped path
+as an authorization gate without first enumerating every relation your policy
+considers sufficient for the guarded action. Prefer the scoped path
+(`relation` provided) for authz checks.
 
 ## Testing
 

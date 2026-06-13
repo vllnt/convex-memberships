@@ -215,6 +215,15 @@ export class Memberships {
   /**
    * Whether `memberRef` relates to `resourceRef`. With `relation`, checks that
    * exact edge; without, checks any relation between the two.
+   *
+   * @remarks
+   * **Security warning — unscoped path.** When `relation` is omitted this
+   * method returns `true` for **any** relation stored between the pair
+   * (e.g. `"invited"`, `"suspended"`, `"banned"`). Do **not** use the
+   * unscoped path as an authorization gate without first enumerating every
+   * relation your policy considers sufficient for the guarded action. Use the
+   * scoped path (`relation` provided) for authz checks, or enumerate
+   * acceptable relations explicitly before calling.
    */
   isMember(
     ctx: RunQueryCtx,

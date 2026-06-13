@@ -15,6 +15,7 @@
 
 import { useQuery } from "convex/react";
 import type { FunctionReference } from "convex/server";
+import type { MemberEntry, Page, ResourceEntry } from "../client/types.js";
 
 /**
  * A reference to the component's `isMember` query, as re-exported by the host
@@ -37,7 +38,7 @@ export type MembersRef = FunctionReference<
   "query",
   "public",
   { memberRef: string; paginationOpts: { numItems: number; cursor: string | null } },
-  unknown
+  Page<ResourceEntry>
 >;
 
 /**
@@ -53,7 +54,7 @@ export type ListMembersRef = FunctionReference<
     relation?: string;
     paginationOpts: { numItems: number; cursor: string | null };
   },
-  unknown
+  Page<MemberEntry>
 >;
 
 /**

@@ -63,6 +63,19 @@ export const members = query({
   },
 });
 
+/**
+ * Whether `memberRef` relates to `resourceRef` under the given `relation`, or
+ * under **any** stored relation when `relation` is omitted.
+ *
+ * @remarks
+ * **Security warning — unscoped path.** When `relation` is omitted this
+ * function returns `true` for **any** relation stored between the pair
+ * (e.g. `"invited"`, `"suspended"`, `"banned"`). Do **not** use the
+ * unscoped path as an authorization gate without first enumerating every
+ * relation your policy considers sufficient for the guarded action. Use the
+ * scoped path (`relation` provided) for authz checks, or enumerate
+ * acceptable relations explicitly before calling.
+ */
 export const isMember = query({
   args: {
     memberRef: v.string(),

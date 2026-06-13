@@ -26,10 +26,12 @@ the last page.
 ### `add(ctx, memberRef, resourceRef, relation?, memberKind?, status?) → id`
 
 Add the edge `(memberRef, resourceRef, relation)`, classified by the opaque
-`memberKind` and optionally stamped with an opaque `status`. Idempotent: if the
-exact tuple already exists, returns the existing id without inserting a second
-row. `relation` defaults to `defaultRelation`, `memberKind` to
-`defaultMemberKind` (`"user"`).
+`memberKind` and optionally stamped with an opaque `status`. Idempotent on the
+tuple `(memberRef, resourceRef, relation)`: if the exact tuple already exists,
+the existing id is returned **and** `memberKind` / `status` are patched to the
+incoming values. Re-adding with a different `memberKind` updates the stored
+classification — the id is stable, the classification is current. `relation`
+defaults to `defaultRelation`, `memberKind` to `defaultMemberKind` (`"user"`).
 
 ### `remove(ctx, memberRef, resourceRef, relation?) → { removed }`
 
@@ -39,11 +41,17 @@ existed.
 
 ### `setRelation(ctx, memberRef, resourceRef, fromRelation, toRelation) → { ok, reason? }`
 
-Move the member's edge on the resource from `fromRelation` to `toRelation`.
-When `fromRelation === toRelation` it is a no-op `{ ok: true }`. Returns
-`{ ok: false, reason: "NOT_FOUND" }` if the `fromRelation` edge does not exist,
-or `{ ok: false, reason: "EXISTS" }` if a `toRelation` edge already exists;
-otherwise `{ ok: true }`. `reason` is the typed union `"NOT_FOUND" | "EXISTS"`.
+Move the member's edge on the resource from `fromRelation` to `toRelation`. The
+`fromRelation` edge **must exist** — if it does not, returns
+`{ ok: false, reason: "NOT_FOUND" }` regardless of whether `fromRelation` equals
+`toRelation`. When the edge exists and `fromRelation === toRelation`, it is a
+no-op `{ ok: true }`. Returns `{ ok: false, reason: "EXISTS" }` if a
+`toRelation` edge already exists; otherwise patches the relation and returns
+`{ ok: true }`. `reason` is the typed union `"NOT_FOUND" | "EXISTS"`.
+
+> **Note:** `setRelation(m, r, "x", "x")` on a non-existent edge returns
+> `{ ok: false, reason: "NOT_FOUND" }`, not `{ ok: true }`. The no-op only
+> fires when the source edge is confirmed to exist.
 
 ## Queries
 
@@ -61,6 +69,14 @@ One page of resources `memberRef` relates to, as `{ resourceRef, relation }`.
 Whether `memberRef` relates to `resourceRef`. With `relation`, checks that exact
 edge; without, a bounded `by_member_resource` index lookup checks whether any
 relation connects the two (not a full member scan).
+
+> **Security warning — unscoped path.** When `relation` is omitted, this method
+> returns `true` for **any** relation stored between the pair (e.g. `"invited"`,
+> `"suspended"`, `"banned"`). Do **not** use the unscoped path as an
+> authorization gate without first enumerating every relation your policy
+> considers sufficient for the guarded action. Use the scoped path (`relation`
+> provided) for authz checks, or enumerate acceptable relations explicitly before
+> calling.
 
 ### `documents(ctx, paginationOpts, filter?) → Page<MembershipDoc>`
 

@@ -25,6 +25,10 @@ export const add = mutation({
       )
       .first();
     if (existing !== null) {
+      await ctx.db.patch(existing._id, {
+        memberKind: args.memberKind,
+        status: args.status,
+      });
       return existing._id;
     }
     return await ctx.db.insert("memberships", {
@@ -72,9 +76,6 @@ export const setRelation = mutation({
   },
   returns: setRelationResult,
   handler: async (ctx, args): Promise<SetRelationResult> => {
-    if (args.fromRelation === args.toRelation) {
-      return { ok: true };
-    }
     const from = await ctx.db
       .query("memberships")
       .withIndex("by_tuple", (q) =>
@@ -86,6 +87,9 @@ export const setRelation = mutation({
       .first();
     if (from === null) {
       return { ok: false, reason: "NOT_FOUND" };
+    }
+    if (args.fromRelation === args.toRelation) {
+      return { ok: true };
     }
     const taken = await ctx.db
       .query("memberships")
