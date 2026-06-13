@@ -1,5 +1,7 @@
 # API Reference — @vllnt/convex-memberships
 
+**Compatibility:** `convex@^1.41.0`
+
 Construct the client with the mounted component and optional config:
 
 ```ts
