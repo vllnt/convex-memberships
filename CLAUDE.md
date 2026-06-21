@@ -72,11 +72,10 @@ sandboxed table is unreachable by the host except through the component's export
 
 | Changed | Update |
 |---------|--------|
-| API (client methods, args, returns) | `docs/API.md`, README API Reference table, `llms.txt` + `llms-full.txt` |
+| API (client methods, args, returns) | `docs/API.md`, README API Reference table, `llms.txt` |
 | Schema / indexes | README Architecture section, `docs/API.md` |
-| `./react` hooks added/changed | README React section, `scripts/generate-llms.mjs` file list, `llms-full.txt` |
+| `./react` hooks added/changed | README React section |
 | Version bumped | `CHANGELOG.md`, README badges |
-| Any source change | run `pnpm generate:llms` to regenerate `llms-full.txt` |
 
 ## Conventions
 
