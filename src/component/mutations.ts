@@ -25,7 +25,7 @@ export const add = mutation({
       )
       .first();
     if (existing !== null) {
-      await ctx.db.patch(existing._id, {
+      await ctx.db.patch("memberships", existing._id, {
         memberKind: args.memberKind,
         status: args.status,
       });
@@ -62,7 +62,7 @@ export const remove = mutation({
     if (existing === null) {
       return { removed: false };
     }
-    await ctx.db.delete(existing._id);
+    await ctx.db.delete("memberships", existing._id);
     return { removed: true };
   },
 });
@@ -103,7 +103,7 @@ export const setRelation = mutation({
     if (taken !== null) {
       return { ok: false, reason: "EXISTS" };
     }
-    await ctx.db.patch(from._id, { relation: args.toRelation });
+    await ctx.db.patch("memberships", from._id, { relation: args.toRelation });
     return { ok: true };
   },
 });
