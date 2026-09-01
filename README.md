@@ -38,7 +38,7 @@ auto-resolved; it is planned for vNext.
 pnpm add @vllnt/convex-memberships
 ```
 
-Peer dependency: `convex@^1.41.0`.
+Peer dependency: `convex@^1.45.0`.
 
 ## Usage
 
@@ -85,6 +85,10 @@ Client options: `new Memberships(component, { defaultRelation = "member", defaul
 | `members(ctx, memberRef, paginationOpts)` | query | `Page<ResourceEntry>` |
 | `isMember(ctx, memberRef, resourceRef, relation?)` | query | `boolean` |
 | `documents(ctx, paginationOpts, filter?)` | query | `Page<MembershipDoc>` |
+
+All listing methods require `paginationOpts.numItems` to be an integer from 1
+through 1000 and cap `maximumRowsRead` at 1000, including reactive cursor ranges.
+Invalid numeric pagination options throw `INVALID_PAGE_SIZE`.
 
 Full reference: [docs/API.md](docs/API.md).
 

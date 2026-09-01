@@ -1,5 +1,6 @@
 import { paginationOptsValidator } from "convex/server";
-import { v } from "convex/values";
+import type { PaginationOptions } from "convex/server";
+import { ConvexError, v } from "convex/values";
 import { query } from "./_generated/server";
 import {
   memberEntry,
@@ -9,6 +10,40 @@ import {
   resourceEntryPage,
 } from "./validators";
 
+const MAX_PAGE_SIZE = 1000;
+
+function boundedPaginationOptions(
+  paginationOpts: PaginationOptions,
+): PaginationOptions {
+  const { numItems, maximumRowsRead } = paginationOpts;
+  if (
+    !Number.isFinite(numItems) ||
+    !Number.isInteger(numItems) ||
+    numItems < 1 ||
+    numItems > MAX_PAGE_SIZE
+  ) {
+    throw new ConvexError({
+      code: "INVALID_PAGE_SIZE",
+      message: `paginationOpts.numItems must be an integer between 1 and ${MAX_PAGE_SIZE}`,
+    });
+  }
+  if (
+    maximumRowsRead !== undefined &&
+    (!Number.isFinite(maximumRowsRead) ||
+      !Number.isInteger(maximumRowsRead) ||
+      maximumRowsRead < 1)
+  ) {
+    throw new ConvexError({
+      code: "INVALID_PAGE_SIZE",
+      message: "paginationOpts.maximumRowsRead must be a positive finite integer",
+    });
+  }
+  return {
+    ...paginationOpts,
+    maximumRowsRead: Math.min(maximumRowsRead ?? MAX_PAGE_SIZE, MAX_PAGE_SIZE),
+  };
+}
+
 export const listMembers = query({
   args: {
     resourceRef: v.string(),
@@ -17,6 +52,7 @@ export const listMembers = query({
   },
   returns: memberEntryPage,
   handler: async (ctx, args) => {
+    const paginationOpts = boundedPaginationOptions(args.paginationOpts);
     const relation = args.relation;
     const result =
       relation === undefined
@@ -25,13 +61,13 @@ export const listMembers = query({
             .withIndex("by_resource", (q) =>
               q.eq("resourceRef", args.resourceRef),
             )
-            .paginate(args.paginationOpts)
+            .paginate(paginationOpts)
         : await ctx.db
             .query("memberships")
             .withIndex("by_resource_relation", (q) =>
               q.eq("resourceRef", args.resourceRef).eq("relation", relation),
             )
-            .paginate(args.paginationOpts);
+            .paginate(paginationOpts);
     return {
       page: result.page.map((row) => ({
         memberRef: row.memberRef,
@@ -48,10 +84,11 @@ export const members = query({
   args: { memberRef: v.string(), paginationOpts: paginationOptsValidator },
   returns: resourceEntryPage,
   handler: async (ctx, args) => {
+    const paginationOpts = boundedPaginationOptions(args.paginationOpts);
     const result = await ctx.db
       .query("memberships")
       .withIndex("by_member", (q) => q.eq("memberRef", args.memberRef))
-      .paginate(args.paginationOpts);
+      .paginate(paginationOpts);
     return {
       page: result.page.map((row) => ({
         resourceRef: row.resourceRef,
@@ -115,6 +152,7 @@ export const documents = query({
   },
   returns: membershipDocPage,
   handler: async (ctx, args) => {
+    const paginationOpts = boundedPaginationOptions(args.paginationOpts);
     const resourceRef = args.resourceRef;
     const memberRef = args.memberRef;
     const result =
@@ -122,13 +160,13 @@ export const documents = query({
         ? await ctx.db
             .query("memberships")
             .withIndex("by_resource", (q) => q.eq("resourceRef", resourceRef))
-            .paginate(args.paginationOpts)
+            .paginate(paginationOpts)
         : memberRef !== undefined
           ? await ctx.db
               .query("memberships")
               .withIndex("by_member", (q) => q.eq("memberRef", memberRef))
-              .paginate(args.paginationOpts)
-          : await ctx.db.query("memberships").paginate(args.paginationOpts);
+              .paginate(paginationOpts)
+          : await ctx.db.query("memberships").paginate(paginationOpts);
     return {
       page: result.page.map((row) => ({
         memberRef: row.memberRef,

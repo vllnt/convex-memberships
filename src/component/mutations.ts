@@ -25,10 +25,15 @@ export const add = mutation({
       )
       .first();
     if (existing !== null) {
-      await ctx.db.patch("memberships", existing._id, {
-        memberKind: args.memberKind,
-        status: args.status,
-      });
+      if (
+        existing.memberKind !== args.memberKind ||
+        existing.status !== args.status
+      ) {
+        await ctx.db.patch("memberships", existing._id, {
+          memberKind: args.memberKind,
+          status: args.status,
+        });
+      }
       return existing._id;
     }
     return await ctx.db.insert("memberships", {

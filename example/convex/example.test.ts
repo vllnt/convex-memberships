@@ -725,6 +725,66 @@ describe("memberships — isolation: listMembers and members scoped per resource
   });
 });
 
+describe("memberships — pagination bounds", () => {
+  test.each([0, 1001, 1.5, Number.POSITIVE_INFINITY])(
+    "listMembers rejects an invalid page size (%s)",
+    async (numItems) => {
+      const t = setup();
+      await expect(
+        t.query(api.example.listMembers, {
+          resourceRef: "org_1",
+          paginationOpts: { cursor: null, numItems },
+        }),
+      ).rejects.toMatchObject({ data: { code: "INVALID_PAGE_SIZE" } });
+    },
+  );
+
+  test.each([0, 1.5, Number.POSITIVE_INFINITY])(
+    "rejects an invalid maximumRowsRead (%s)",
+    async (maximumRowsRead) => {
+      const t = setup();
+      await expect(
+        t.query(api.example.listMembers, {
+          resourceRef: "org_1",
+          paginationOpts: { cursor: null, numItems: 1, maximumRowsRead },
+        }),
+      ).rejects.toMatchObject({ data: { code: "INVALID_PAGE_SIZE" } });
+    },
+  );
+
+  test("members and documents enforce the same maximum", async () => {
+    const t = setup();
+    await expect(
+      t.query(api.example.members, {
+        memberRef: "user_1",
+        paginationOpts: { cursor: null, numItems: 1001 },
+      }),
+    ).rejects.toMatchObject({ data: { code: "INVALID_PAGE_SIZE" } });
+    await expect(
+      t.query(api.example.documents, {
+        paginationOpts: { cursor: null, numItems: 1001 },
+      }),
+    ).rejects.toMatchObject({ data: { code: "INVALID_PAGE_SIZE" } });
+  });
+
+  test("all listing queries accept the maximum page size", async () => {
+    const t = setup();
+    const paginationOpts = {
+      cursor: null,
+      numItems: 1000,
+      maximumRowsRead: 5000,
+    };
+    expect(
+      (await t.query(api.example.listMembers, { resourceRef: "org_1", paginationOpts }))
+        .page,
+    ).toEqual([]);
+    expect(
+      (await t.query(api.example.members, { memberRef: "user_1", paginationOpts })).page,
+    ).toEqual([]);
+    expect((await t.query(api.example.documents, { paginationOpts })).page).toEqual([]);
+  });
+});
+
 describe("memberships — documents branching", () => {
   test("with both resourceRef and memberRef: resource wins (resource-scoped result)", async () => {
     const t = setup();

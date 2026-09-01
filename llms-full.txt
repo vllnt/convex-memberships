@@ -46,7 +46,7 @@ auto-resolved; it is planned for vNext.
 pnpm add @vllnt/convex-memberships
 ```
 
-Peer dependency: `convex@^1.41.0`.
+Peer dependency: `convex@^1.45.0`.
 
 ## Usage
 
@@ -93,6 +93,10 @@ Client options: `new Memberships(component, { defaultRelation = "member", defaul
 | `members(ctx, memberRef, paginationOpts)` | query | `Page<ResourceEntry>` |
 | `isMember(ctx, memberRef, resourceRef, relation?)` | query | `boolean` |
 | `documents(ctx, paginationOpts, filter?)` | query | `Page<MembershipDoc>` |
+
+All listing methods require `paginationOpts.numItems` to be an integer from 1
+through 1000 and cap `maximumRowsRead` at 1000, including reactive cursor ranges.
+Invalid numeric pagination options throw `INVALID_PAGE_SIZE`.
 
 Full reference: [docs/API.md](docs/API.md).
 
@@ -164,6 +168,25 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- Treat Convex `_generated` output as CLI-owned, exclude it from formatting, and expose a
+  dedicated codegen script.
+- Refresh all direct dependencies to their latest compatible releases for canary validation.
+- Require `convex@^1.45.0` and update `convex-test` to `^0.0.56`.
+- Bound all paginated membership reads to integer page sizes from 1 through 1000
+  and cap `maximumRowsRead` at 1000 for reactive cursor ranges.
+
+### Breaking
+
+- Listing queries now throw `INVALID_PAGE_SIZE` for invalid numeric pagination
+  options. Use integer `numItems` values from 1 through 1000; larger
+  `maximumRowsRead` values are safely capped.
+
+### Fixed
+
+- Skip redundant document patches when an idempotent `add` leaves classification and status unchanged.
+
 ## [0.1.0] - 2026-06-13
 
 ### Added
@@ -214,7 +237,7 @@ All notable changes to this project are documented here. The format is based on
 
 # API Reference — @vllnt/convex-memberships
 
-**Compatibility:** `convex@^1.41.0`
+**Compatibility:** `convex@^1.45.0`
 
 Construct the client with the mounted component and optional config:
 
@@ -233,9 +256,12 @@ never inspects. Edges are FLAT — there is no transitive expansion (see
 [vNext](#vnext)).
 
 Listing methods are **paginated**: they take a Convex `paginationOpts`
-(`{ numItems, cursor }`) and return `{ page, isDone, continueCursor }`. Feed the
-returned `continueCursor` back as the next call's `cursor`; `isDone` is true on
-the last page.
+(`{ numItems, cursor }`) and return `{ page, isDone, continueCursor }`. `numItems`
+must be an integer from 1 through 1000. `maximumRowsRead`, when provided, must
+be a positive finite integer and is capped at 1000 so explicit reactive cursor
+ranges remain bounded. Invalid numeric values throw `INVALID_PAGE_SIZE`. Feed
+the returned `continueCursor` back as the next call's `cursor`; `isDone` is true
+on the last page.
 
 ## Mutations
 
@@ -842,10 +868,15 @@ export const add = mutation({
       )
       .first();
     if (existing !== null) {
-      await ctx.db.patch(existing._id, {
-        memberKind: args.memberKind,
-        status: args.status,
-      });
+      if (
+        existing.memberKind !== args.memberKind ||
+        existing.status !== args.status
+      ) {
+        await ctx.db.patch("memberships", existing._id, {
+          memberKind: args.memberKind,
+          status: args.status,
+        });
+      }
       return existing._id;
     }
     return await ctx.db.insert("memberships", {
@@ -879,7 +910,7 @@ export const remove = mutation({
     if (existing === null) {
       return { removed: false };
     }
-    await ctx.db.delete(existing._id);
+    await ctx.db.delete("memberships", existing._id);
     return { removed: true };
   },
 });
@@ -920,7 +951,7 @@ export const setRelation = mutation({
     if (taken !== null) {
       return { ok: false, reason: "EXISTS" };
     }
-    await ctx.db.patch(from._id, { relation: args.toRelation });
+    await ctx.db.patch("memberships", from._id, { relation: args.toRelation });
     return { ok: true };
   },
 });
@@ -933,7 +964,8 @@ export const setRelation = mutation({
 
 ```ts
 import { paginationOptsValidator } from "convex/server";
-import { v } from "convex/values";
+import type { PaginationOptions } from "convex/server";
+import { ConvexError, v } from "convex/values";
 import { query } from "./_generated/server";
 import {
   memberEntry,
@@ -943,6 +975,40 @@ import {
   resourceEntryPage,
 } from "./validators";
 
+const MAX_PAGE_SIZE = 1000;
+
+function boundedPaginationOptions(
+  paginationOpts: PaginationOptions,
+): PaginationOptions {
+  const { numItems, maximumRowsRead } = paginationOpts;
+  if (
+    !Number.isFinite(numItems) ||
+    !Number.isInteger(numItems) ||
+    numItems < 1 ||
+    numItems > MAX_PAGE_SIZE
+  ) {
+    throw new ConvexError({
+      code: "INVALID_PAGE_SIZE",
+      message: `paginationOpts.numItems must be an integer between 1 and ${MAX_PAGE_SIZE}`,
+    });
+  }
+  if (
+    maximumRowsRead !== undefined &&
+    (!Number.isFinite(maximumRowsRead) ||
+      !Number.isInteger(maximumRowsRead) ||
+      maximumRowsRead < 1)
+  ) {
+    throw new ConvexError({
+      code: "INVALID_PAGE_SIZE",
+      message: "paginationOpts.maximumRowsRead must be a positive finite integer",
+    });
+  }
+  return {
+    ...paginationOpts,
+    maximumRowsRead: Math.min(maximumRowsRead ?? MAX_PAGE_SIZE, MAX_PAGE_SIZE),
+  };
+}
+
 export const listMembers = query({
   args: {
     resourceRef: v.string(),
@@ -951,6 +1017,7 @@ export const listMembers = query({
   },
   returns: memberEntryPage,
   handler: async (ctx, args) => {
+    const paginationOpts = boundedPaginationOptions(args.paginationOpts);
     const relation = args.relation;
     const result =
       relation === undefined
@@ -959,13 +1026,13 @@ export const listMembers = query({
             .withIndex("by_resource", (q) =>
               q.eq("resourceRef", args.resourceRef),
             )
-            .paginate(args.paginationOpts)
+            .paginate(paginationOpts)
         : await ctx.db
             .query("memberships")
             .withIndex("by_resource_relation", (q) =>
               q.eq("resourceRef", args.resourceRef).eq("relation", relation),
             )
-            .paginate(args.paginationOpts);
+            .paginate(paginationOpts);
     return {
       page: result.page.map((row) => ({
         memberRef: row.memberRef,
@@ -982,10 +1049,11 @@ export const members = query({
   args: { memberRef: v.string(), paginationOpts: paginationOptsValidator },
   returns: resourceEntryPage,
   handler: async (ctx, args) => {
+    const paginationOpts = boundedPaginationOptions(args.paginationOpts);
     const result = await ctx.db
       .query("memberships")
       .withIndex("by_member", (q) => q.eq("memberRef", args.memberRef))
-      .paginate(args.paginationOpts);
+      .paginate(paginationOpts);
     return {
       page: result.page.map((row) => ({
         resourceRef: row.resourceRef,
@@ -1049,6 +1117,7 @@ export const documents = query({
   },
   returns: membershipDocPage,
   handler: async (ctx, args) => {
+    const paginationOpts = boundedPaginationOptions(args.paginationOpts);
     const resourceRef = args.resourceRef;
     const memberRef = args.memberRef;
     const result =
@@ -1056,13 +1125,13 @@ export const documents = query({
         ? await ctx.db
             .query("memberships")
             .withIndex("by_resource", (q) => q.eq("resourceRef", resourceRef))
-            .paginate(args.paginationOpts)
+            .paginate(paginationOpts)
         : memberRef !== undefined
           ? await ctx.db
               .query("memberships")
               .withIndex("by_member", (q) => q.eq("memberRef", memberRef))
-              .paginate(args.paginationOpts)
-          : await ctx.db.query("memberships").paginate(args.paginationOpts);
+              .paginate(paginationOpts)
+          : await ctx.db.query("memberships").paginate(paginationOpts);
     return {
       page: result.page.map((row) => ({
         memberRef: row.memberRef,
