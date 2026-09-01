@@ -1,6 +1,6 @@
 # API Reference — @vllnt/convex-memberships
 
-**Compatibility:** `convex@^1.41.0`
+**Compatibility:** `convex@^1.45.0`
 
 Construct the client with the mounted component and optional config:
 
@@ -19,9 +19,12 @@ never inspects. Edges are FLAT — there is no transitive expansion (see
 [vNext](#vnext)).
 
 Listing methods are **paginated**: they take a Convex `paginationOpts`
-(`{ numItems, cursor }`) and return `{ page, isDone, continueCursor }`. Feed the
-returned `continueCursor` back as the next call's `cursor`; `isDone` is true on
-the last page.
+(`{ numItems, cursor }`) and return `{ page, isDone, continueCursor }`. `numItems`
+must be an integer from 1 through 1000. `maximumRowsRead`, when provided, must
+be a positive finite integer and is capped at 1000 so explicit reactive cursor
+ranges remain bounded. Invalid numeric values throw `INVALID_PAGE_SIZE`. Feed
+the returned `continueCursor` back as the next call's `cursor`; `isDone` is true
+on the last page.
 
 ## Mutations
 
