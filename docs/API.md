@@ -19,12 +19,12 @@ never inspects. Edges are FLAT — there is no transitive expansion (see
 [vNext](#vnext)).
 
 Listing methods are **paginated**: they take a Convex `paginationOpts`
-(`{ numItems, cursor }`) and return `{ page, isDone, continueCursor }`. `numItems`
-must be an integer from 1 through 1000. `maximumRowsRead`, when provided, must
-be a positive finite integer and is capped at 1000 so explicit reactive cursor
-ranges remain bounded. Invalid numeric values throw `INVALID_PAGE_SIZE`. Feed
-the returned `continueCursor` back as the next call's `cursor`; `isDone` is true
-on the last page.
+(`{ numItems, cursor }`) and return `{ page, isDone, continueCursor }`.
+`numItems` must be an integer from 1 through 1000. `maximumRowsRead`, when
+provided, must be a positive finite integer and is capped at 1000 so explicit
+reactive cursor ranges remain bounded. Invalid numeric values throw
+`INVALID_PAGE_SIZE`. Feed the returned `continueCursor` back as the next call's
+`cursor`; `isDone` is true on the last page.
 
 ## Mutations
 
@@ -55,8 +55,8 @@ no-op `{ ok: true }`. Returns `{ ok: false, reason: "EXISTS" }` if a
 `{ ok: true }`. `reason` is the typed union `"NOT_FOUND" | "EXISTS"`.
 
 > **Note:** `setRelation(m, r, "x", "x")` on a non-existent edge returns
-> `{ ok: false, reason: "NOT_FOUND" }`, not `{ ok: true }`. The no-op only
-> fires when the source edge is confirmed to exist.
+> `{ ok: false, reason: "NOT_FOUND" }`, not `{ ok: true }`. The no-op only fires
+> when the source edge is confirmed to exist.
 
 ## Queries
 
@@ -80,18 +80,32 @@ relation connects the two (not a full member scan).
 > `"suspended"`, `"banned"`). Do **not** use the unscoped path as an
 > authorization gate without first enumerating every relation your policy
 > considers sufficient for the guarded action. Use the scoped path (`relation`
-> provided) for authz checks, or enumerate acceptable relations explicitly before
-> calling.
+> provided) for authz checks, or enumerate acceptable relations explicitly
+> before calling.
 
 ### `documents(ctx, paginationOpts, filter?) → Page<MembershipDoc>`
 
-One page of full membership docs — `{ memberRef, memberKind, resourceRef,
-relation, status?, createdAt }` — exposing the stored `createdAt` and `status`.
-`filter` optionally scopes by `{ resourceRef }` or `{ memberRef }` (resource
-wins if both are given); unscoped paginates every edge.
+One page of full membership docs —
+`{ memberRef, memberKind, resourceRef, relation, status?, createdAt }` —
+exposing the stored `createdAt` and `status`. `filter` optionally scopes by
+`{ resourceRef }` or `{ memberRef }` (resource wins if both are given); unscoped
+paginates every edge.
+
+## React
+
+`useMembers` and `useListMembers` request only
+`{ numItems: 100, cursor: null }`. They return the page object, including
+`isDone` and `continueCursor`, but provide no load-more control. Use an
+authorized host query with explicit pagination (or Convex's `usePaginatedQuery`)
+when the first page is not enough.
+
+All hooks consume host query references. The host must authorize the requested
+member/resource; component isolation alone does not make metadata public.
+`isMember` does not filter by `status`: apply any status-based policy in the
+host.
 
 ## vNext
 
 Transitive expansion (resolving a member of a group that is a member of an org
-to a member of the org — `expandMembers` / `resolve`) is **not** in this version.
-Edges are flat. It is planned for a future release.
+to a member of the org — `expandMembers` / `resolve`) is **not** in this
+version. Edges are flat. It is planned for a future release.
