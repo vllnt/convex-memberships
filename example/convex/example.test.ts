@@ -869,3 +869,88 @@ describe("memberships — documents branching", () => {
     });
   });
 });
+
+describe("memberships — argument validation", () => {
+  const base = { memberRef: "user_1", resourceRef: "org_1", relation: "member" };
+
+  test.each(["memberRef", "resourceRef", "relation", "memberKind", "status"] as const)(
+    "add rejects an empty %s and stores nothing",
+    async (field) => {
+      const t = setup();
+      await expect(
+        t.mutation(api.example.add, { ...base, memberKind: "user", [field]: "" }),
+      ).rejects.toMatchObject({ data: { code: "INVALID_ARGUMENT" } });
+      const all = await t.query(api.example.documents, { paginationOpts: PAGE });
+      expect(all.page).toHaveLength(0);
+    },
+  );
+
+  test.each(["memberRef", "resourceRef", "relation"] as const)(
+    "remove rejects an empty %s and keeps the edge",
+    async (field) => {
+      const t = setup();
+      await t.mutation(api.example.add, base);
+      await expect(
+        t.mutation(api.example.remove, { ...base, [field]: "" }),
+      ).rejects.toMatchObject({ data: { code: "INVALID_ARGUMENT" } });
+      expect(await t.query(api.example.isMember, base)).toBe(true);
+    },
+  );
+
+  test.each(["memberRef", "resourceRef", "fromRelation", "toRelation"] as const)(
+    "setRelation rejects an empty %s and leaves the edge untouched",
+    async (field) => {
+      const t = setup();
+      await t.mutation(api.example.add, base);
+      await expect(
+        t.mutation(api.example.setRelation, {
+          memberRef: "user_1",
+          resourceRef: "org_1",
+          fromRelation: "member",
+          toRelation: "admin",
+          [field]: "",
+        }),
+      ).rejects.toMatchObject({ data: { code: "INVALID_ARGUMENT" } });
+      expect(await t.query(api.example.isMember, base)).toBe(true);
+    },
+  );
+
+  test("reactive queries stay permissive on placeholder (empty) values", async () => {
+    const t = setup();
+    expect(
+      await t.query(api.example.isMember, { memberRef: "", resourceRef: "" }),
+    ).toBe(false);
+    expect(
+      await t.query(api.example.isMember, {
+        memberRef: "",
+        resourceRef: "",
+        relation: "",
+      }),
+    ).toBe(false);
+    const empty = { page: [], isDone: true, continueCursor: expect.any(String) };
+    expect(
+      await t.query(api.example.listMembers, { resourceRef: "", paginationOpts: PAGE }),
+    ).toMatchObject(empty);
+    expect(
+      await t.query(api.example.members, { memberRef: "", paginationOpts: PAGE }),
+    ).toMatchObject(empty);
+    expect(
+      await t.query(api.example.documents, { memberRef: "", paginationOpts: PAGE }),
+    ).toMatchObject(empty);
+  });
+
+  test("setRelation never overwrites an existing target edge (no silent role merge)", async () => {
+    const t = setup();
+    await t.mutation(api.example.add, { ...base, relation: "member" });
+    await t.mutation(api.example.add, { ...base, relation: "owner" });
+    expect(
+      await t.mutation(api.example.setRelation, {
+        memberRef: "user_1",
+        resourceRef: "org_1",
+        fromRelation: "member",
+        toRelation: "owner",
+      }),
+    ).toEqual({ ok: false, reason: "EXISTS" });
+    expect(await t.query(api.example.isMember, { ...base, relation: "member" })).toBe(true);
+  });
+});
