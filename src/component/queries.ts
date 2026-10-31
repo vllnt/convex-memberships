@@ -8,7 +8,7 @@ import {
   membershipDocPage,
   resourceEntry,
   resourceEntryPage,
-} from "./validators";
+} from "./validators.js";
 
 const MAX_PAGE_SIZE = 1000;
 

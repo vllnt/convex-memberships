@@ -1,7 +1,8 @@
 import type { Infer } from "convex/values";
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
-import { memberKind, removeResult, setRelationResult } from "./validators";
+import { requireNonEmpty } from "./guards.js";
+import { memberKind, removeResult, setRelationResult } from "./validators.js";
 
 type SetRelationResult = Infer<typeof setRelationResult>;
 
@@ -15,6 +16,13 @@ export const add = mutation({
   },
   returns: v.id("memberships"),
   handler: async (ctx, args) => {
+    requireNonEmpty({
+      memberRef: args.memberRef,
+      memberKind: args.memberKind,
+      resourceRef: args.resourceRef,
+      relation: args.relation,
+      status: args.status,
+    });
     const existing = await ctx.db
       .query("memberships")
       .withIndex("by_tuple", (q) =>
@@ -55,6 +63,11 @@ export const remove = mutation({
   },
   returns: removeResult,
   handler: async (ctx, args) => {
+    requireNonEmpty({
+      memberRef: args.memberRef,
+      resourceRef: args.resourceRef,
+      relation: args.relation,
+    });
     const existing = await ctx.db
       .query("memberships")
       .withIndex("by_tuple", (q) =>
@@ -81,6 +94,12 @@ export const setRelation = mutation({
   },
   returns: setRelationResult,
   handler: async (ctx, args): Promise<SetRelationResult> => {
+    requireNonEmpty({
+      memberRef: args.memberRef,
+      resourceRef: args.resourceRef,
+      fromRelation: args.fromRelation,
+      toRelation: args.toRelation,
+    });
     const from = await ctx.db
       .query("memberships")
       .withIndex("by_tuple", (q) =>
