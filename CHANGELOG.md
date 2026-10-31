@@ -4,28 +4,39 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.1] - Unreleased
+
+### Fixed
+
+- `add`, `remove` and `setRelation` reject an empty `memberRef`, `resourceRef`, `relation`,
+  `memberKind`, `status`, `fromRelation` or `toRelation` with
+  `ConvexError({ code: "INVALID_ARGUMENT" })`. Previously an empty relation or ref was stored as a
+  real edge. Reactive queries still accept empty placeholder values and find nothing.
+- `@vllnt/convex-memberships/test` now type-checks under `moduleResolution: nodenext` (explicit
+  `.js` relative imports, Vite client types referenced).
+- The published tarball no longer includes test files.
+
+### Changed
+
+- Adopt pnpm 10 with a release-age gate; releases are published only from CI with npm trusted
+  publishing and provenance. Pin the deepmerge-ts override to 8.0.2.
+- Document the error codes, that role/permission checks and last-owner protection are the host's
+  job, and how to use `/test` in a consuming app.
+
+## [0.1.0] - 2026-09-01
 
 ### Changed
 
 - Treat Convex `_generated` output as CLI-owned, exclude it from formatting, and expose a
   dedicated codegen script.
-- Refresh all direct dependencies to their latest compatible releases for canary validation.
-- Require `convex@^1.45.0` and update `convex-test` to `^0.0.56`.
+- Require `convex@^1.45.0`.
 - Bound all paginated membership reads to integer page sizes from 1 through 1000
-  and cap `maximumRowsRead` at 1000 for reactive cursor ranges.
-
-### Breaking
-
-- Listing queries now throw `INVALID_PAGE_SIZE` for invalid numeric pagination
-  options. Use integer `numItems` values from 1 through 1000; larger
-  `maximumRowsRead` values are safely capped.
+  and cap `maximumRowsRead` at 1000 for reactive cursor ranges. Listing queries throw
+  `INVALID_PAGE_SIZE` for invalid numeric pagination options.
 
 ### Fixed
 
 - Skip redundant document patches when an idempotent `add` leaves classification and status unchanged.
-
-## [0.1.0] - 2026-06-13
 
 ### Added
 

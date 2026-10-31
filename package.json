@@ -1,6 +1,6 @@
 {
   "name": "@vllnt/convex-memberships",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Auth-agnostic membership and relationship graph (ReBAC tuples), as a Convex component",
   "license": "MIT",
   "type": "module",
