@@ -47,8 +47,9 @@ pnpm add @vllnt/convex-memberships
 ```
 
 Requires `convex@^1.45.0`; React `>=18` is optional for `./react` only. The
-command installs `latest` (`0.1.0`); use `@vllnt/convex-memberships@canary` for
-the current prerelease. Pin a resolved canary version for reproducible installs.
+command installs the latest stable release; use
+`@vllnt/convex-memberships@canary` for the newest pre-release build. Pin a
+resolved canary version for reproducible installs.
 
 ## Usage
 
@@ -104,6 +105,18 @@ All listing methods require `paginationOpts.numItems` to be an integer from 1
 through 1000 and cap `maximumRowsRead` at 1000, including reactive cursor
 ranges. Invalid numeric pagination options throw `INVALID_PAGE_SIZE`.
 
+### Errors
+
+Errors are `ConvexError`s with a stable `data.code`.
+
+| Code                | Thrown by                             | Meaning                                                       |
+| ------------------- | ------------------------------------- | ------------------------------------------------------------- |
+| `INVALID_ARGUMENT`  | `add`, `remove`, `setRelation`        | A ref, relation, `memberKind` or `status` was an empty string |
+| `INVALID_PAGE_SIZE` | `listMembers`, `members`, `documents` | `numItems` / `maximumRowsRead` is not a valid bounded integer |
+
+Queries never reject empty strings, so a UI can call them with placeholder
+values while an id is loading; they simply find nothing (`isMember` is `false`).
+
 Full reference: [docs/API.md](docs/API.md).
 
 ## React
@@ -145,6 +158,20 @@ member/resource; accepting the hook's args is not authorization.
 - **`isMember` footgun** — called without `relation`, it returns `true` for
   **any** stored relation (`"invited"`, `"suspended"`, `"banned"`, …). For authz
   gates, always pass `relation` or enumerate the relations your policy accepts.
+- **The host enforces roles and permissions.** The component is a plain tuple
+  store: it does not know which relation is an owner or admin, and it cannot
+  read `ctx.auth`. `add`, `remove` and `setRelation` act on whatever refs the
+  host passes, so the host must check that the caller may manage the resource
+  _and_ may grant or revoke that specific relation (a member must not be able to
+  `add` themselves as `owner` or `setRelation` to a higher role).
+- **Last-owner protection is the host's job.** Before `remove` or `setRelation`
+  on an owner edge, count the remaining owners with
+  `listMembers(ctx, resourceRef, { numItems: 2, cursor: null }, "owner")` in the
+  same mutation (mutations are serialized, so the check and the write are
+  atomic) and refuse if it would leave none.
+- **`add` overwrites on re-add.** Re-adding an existing tuple resets its
+  `memberKind` and `status` to the incoming values (`status` becomes unset if
+  omitted), so a host that stamps `"suspended"` must pass it again.
 
 See [docs/API.md](docs/API.md).
 
@@ -157,6 +184,22 @@ pnpm test:coverage  # enforced 100% on covered files
 
 Tests run against the real component runtime via `convex-test`
 (`@edge-runtime/vm`), not mocks.
+
+### Testing your app
+
+`@vllnt/convex-memberships/test` exports `register(t, name = "memberships")` to
+mount the component in a `convex-test` instance. It needs `convex-test` and
+`vitest` (with Vite's `import.meta.glob`) in the consuming app:
+
+```ts
+/// <reference types="vite/client" />
+import { convexTest } from "convex-test";
+import { register } from "@vllnt/convex-memberships/test";
+import schema from "./schema";
+
+const t = convexTest(schema, import.meta.glob("./**/*.ts"));
+register(t);
+```
 
 ## Contributing
 
