@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import { api } from "./_generated/api";
 import schema from "./schema";
 import { register } from "../../src/test";
+import componentSchema from "../../src/component/schema";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -867,6 +868,26 @@ describe("memberships — documents branching", () => {
       resourceRef: expect.any(String) as string,
       relation: expect.any(String) as string,
     });
+  });
+});
+
+describe("memberships — index layout", () => {
+  test("no index is a prefix of another (each write updates only the indexes it needs)", () => {
+    const exported = JSON.parse(
+      (componentSchema as unknown as { export(): string }).export(),
+    ) as { tables: Array<{ indexes: Array<{ indexDescriptor: string; fields: string[] }> }> };
+    const indexes = exported.tables.flatMap((table) => table.indexes);
+    expect(indexes.map((index) => index.indexDescriptor).sort()).toEqual([
+      "by_resource_relation",
+      "by_tuple",
+    ]);
+    for (const a of indexes) {
+      for (const b of indexes) {
+        const isPrefix =
+          a !== b && a.fields.every((field, i) => b.fields[i] === field);
+        expect(isPrefix).toBe(false);
+      }
+    }
   });
 });
 

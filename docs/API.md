@@ -79,7 +79,7 @@ One page of resources `memberRef` relates to, as `{ resourceRef, relation }`.
 ### `isMember(ctx, memberRef, resourceRef, relation?) → boolean`
 
 Whether `memberRef` relates to `resourceRef`. With `relation`, checks that exact
-edge; without, a bounded `by_member_resource` index lookup checks whether any
+edge; without, a bounded `by_tuple` index prefix lookup checks whether any
 relation connects the two (not a full member scan).
 
 > **Security warning — unscoped path.** When `relation` is omitted, this method

@@ -58,7 +58,7 @@ export const listMembers = query({
       relation === undefined
         ? await ctx.db
             .query("memberships")
-            .withIndex("by_resource", (q) =>
+            .withIndex("by_resource_relation", (q) =>
               q.eq("resourceRef", args.resourceRef),
             )
             .paginate(paginationOpts)
@@ -87,7 +87,7 @@ export const members = query({
     const paginationOpts = boundedPaginationOptions(args.paginationOpts);
     const result = await ctx.db
       .query("memberships")
-      .withIndex("by_member", (q) => q.eq("memberRef", args.memberRef))
+      .withIndex("by_tuple", (q) => q.eq("memberRef", args.memberRef))
       .paginate(paginationOpts);
     return {
       page: result.page.map((row) => ({
@@ -136,7 +136,7 @@ export const isMember = query({
     }
     const row = await ctx.db
       .query("memberships")
-      .withIndex("by_member_resource", (q) =>
+      .withIndex("by_tuple", (q) =>
         q.eq("memberRef", args.memberRef).eq("resourceRef", args.resourceRef),
       )
       .first();
@@ -159,12 +159,12 @@ export const documents = query({
       resourceRef !== undefined
         ? await ctx.db
             .query("memberships")
-            .withIndex("by_resource", (q) => q.eq("resourceRef", resourceRef))
+            .withIndex("by_resource_relation", (q) => q.eq("resourceRef", resourceRef))
             .paginate(paginationOpts)
         : memberRef !== undefined
           ? await ctx.db
               .query("memberships")
-              .withIndex("by_member", (q) => q.eq("memberRef", memberRef))
+              .withIndex("by_tuple", (q) => q.eq("memberRef", memberRef))
               .paginate(paginationOpts)
           : await ctx.db.query("memberships").paginate(paginationOpts);
     return {

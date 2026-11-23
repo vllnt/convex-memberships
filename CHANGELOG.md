@@ -18,6 +18,12 @@ All notable changes to this project are documented here. The format is based on
 
 ### Changed
 
+- Drop the prefix-duplicate `by_member`, `by_resource` and `by_member_resource` indexes. Their
+  queries now use the `by_tuple` and `by_resource_relation` prefixes, so each write updates 2
+  indexes instead of 5. Results are unchanged; `members`, `listMembers` (no `relation`) and
+  `documents` pages are now ordered by the remaining index fields (`members`: resource then relation;
+  `listMembers`: relation) before insertion time, and a pagination cursor issued before the
+  upgrade must be restarted.
 - Adopt pnpm 10 with a release-age gate; releases are published only from CI with npm trusted
   publishing and provenance. Pin the deepmerge-ts override to 8.0.2.
 - Document the error codes, that role/permission checks and last-owner protection are the host's
