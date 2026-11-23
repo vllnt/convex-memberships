@@ -8,9 +8,6 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
-- `add` rejects a `memberRef`, `resourceRef`, `relation`, `memberKind` or `status` over 512
-  characters, and `setRelation` a `toRelation` over 512 characters, with
-  `ConvexError({ code: "INVALID_ARGUMENT" })`.
 - `add`, `remove` and `setRelation` reject an empty `memberRef`, `resourceRef`, `relation`,
   `memberKind`, `status`, `fromRelation` or `toRelation` with
   `ConvexError({ code: "INVALID_ARGUMENT" })`. Previously an empty relation or ref was stored as a
