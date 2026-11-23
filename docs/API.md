@@ -27,7 +27,8 @@ reactive cursor ranges remain bounded. Invalid numeric values throw
 `cursor`; `isDone` is true on the last page.
 
 Mutations reject an empty `memberRef`, `resourceRef`, `relation`, `memberKind`
-or `status` with `ConvexError({ code: "INVALID_ARGUMENT" })`. Queries accept
+or `status` with `ConvexError({ code: "INVALID_ARGUMENT" })`. `add` and the
+`toRelation` of `setRelation` also reject any of these over 512 characters. Queries accept
 empty strings (placeholders) and find nothing. The component performs no role or
 permission checks and cannot read `ctx.auth`: the host authorizes the caller and
 any role change, and protects the last owner of a resource (see the README

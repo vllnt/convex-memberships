@@ -1,7 +1,7 @@
 import type { Infer } from "convex/values";
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
-import { requireNonEmpty } from "./guards.js";
+import { requireMaxLength, requireNonEmpty } from "./guards.js";
 import { memberKind, removeResult, setRelationResult } from "./validators.js";
 
 type SetRelationResult = Infer<typeof setRelationResult>;
@@ -17,6 +17,13 @@ export const add = mutation({
   returns: v.id("memberships"),
   handler: async (ctx, args) => {
     requireNonEmpty({
+      memberRef: args.memberRef,
+      memberKind: args.memberKind,
+      resourceRef: args.resourceRef,
+      relation: args.relation,
+      status: args.status,
+    });
+    requireMaxLength({
       memberRef: args.memberRef,
       memberKind: args.memberKind,
       resourceRef: args.resourceRef,
@@ -100,6 +107,7 @@ export const setRelation = mutation({
       fromRelation: args.fromRelation,
       toRelation: args.toRelation,
     });
+    requireMaxLength({ toRelation: args.toRelation });
     const from = await ctx.db
       .query("memberships")
       .withIndex("by_tuple", (q) =>
