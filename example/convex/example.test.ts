@@ -885,6 +885,34 @@ describe("memberships — argument validation", () => {
     },
   );
 
+  test.each(["memberRef", "resourceRef", "relation", "memberKind", "status"] as const)(
+    "add rejects a %s over 512 characters and stores nothing",
+    async (field) => {
+      const t = setup();
+      await expect(
+        t.mutation(api.example.add, { ...base, memberKind: "user", [field]: "x".repeat(513) }),
+      ).rejects.toMatchObject({ data: { code: "INVALID_ARGUMENT" } });
+      const all = await t.query(api.example.documents, { paginationOpts: PAGE });
+      expect(all.page).toHaveLength(0);
+      await t.mutation(api.example.add, { ...base, memberKind: "user", [field]: "x".repeat(512) });
+      expect((await t.query(api.example.documents, { paginationOpts: PAGE })).page).toHaveLength(1);
+    },
+  );
+
+  test("setRelation rejects a toRelation over 512 characters and leaves the edge untouched", async () => {
+    const t = setup();
+    await t.mutation(api.example.add, base);
+    await expect(
+      t.mutation(api.example.setRelation, {
+        memberRef: base.memberRef,
+        resourceRef: base.resourceRef,
+        fromRelation: "member",
+        toRelation: "x".repeat(513),
+      }),
+    ).rejects.toMatchObject({ data: { code: "INVALID_ARGUMENT" } });
+    expect(await t.query(api.example.isMember, base)).toBe(true);
+  });
+
   test.each(["memberRef", "resourceRef", "relation"] as const)(
     "remove rejects an empty %s and keeps the edge",
     async (field) => {
