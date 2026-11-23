@@ -27,7 +27,8 @@ reactive cursor ranges remain bounded. Invalid numeric values throw
 `cursor`; `isDone` is true on the last page.
 
 Mutations reject an empty `memberRef`, `resourceRef`, `relation`, `memberKind`
-or `status` with `ConvexError({ code: "INVALID_ARGUMENT" })`. Queries accept
+or `status` with `ConvexError({ code: "INVALID_ARGUMENT" })`. `add` and the
+`toRelation` of `setRelation` also reject any of these over 512 characters. Queries accept
 empty strings (placeholders) and find nothing. The component performs no role or
 permission checks and cannot read `ctx.auth`: the host authorizes the caller and
 any role change, and protects the last owner of a resource (see the README
@@ -79,7 +80,7 @@ One page of resources `memberRef` relates to, as `{ resourceRef, relation }`.
 ### `isMember(ctx, memberRef, resourceRef, relation?) → boolean`
 
 Whether `memberRef` relates to `resourceRef`. With `relation`, checks that exact
-edge; without, a bounded `by_member_resource` index lookup checks whether any
+edge; without, a bounded `by_tuple` index prefix lookup checks whether any
 relation connects the two (not a full member scan).
 
 > **Security warning — unscoped path.** When `relation` is omitted, this method

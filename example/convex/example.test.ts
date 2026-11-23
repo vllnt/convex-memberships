@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import { api } from "./_generated/api";
 import schema from "./schema";
 import { register } from "../../src/test";
+import componentSchema from "../../src/component/schema";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -870,6 +871,26 @@ describe("memberships — documents branching", () => {
   });
 });
 
+describe("memberships — index layout", () => {
+  test("no index is a prefix of another (each write updates only the indexes it needs)", () => {
+    const exported = JSON.parse(
+      (componentSchema as unknown as { export(): string }).export(),
+    ) as { tables: Array<{ indexes: Array<{ indexDescriptor: string; fields: string[] }> }> };
+    const indexes = exported.tables.flatMap((table) => table.indexes);
+    expect(indexes.map((index) => index.indexDescriptor).sort()).toEqual([
+      "by_resource_relation",
+      "by_tuple",
+    ]);
+    for (const a of indexes) {
+      for (const b of indexes) {
+        const isPrefix =
+          a !== b && a.fields.every((field, i) => b.fields[i] === field);
+        expect(isPrefix).toBe(false);
+      }
+    }
+  });
+});
+
 describe("memberships — argument validation", () => {
   const base = { memberRef: "user_1", resourceRef: "org_1", relation: "member" };
 
@@ -884,6 +905,34 @@ describe("memberships — argument validation", () => {
       expect(all.page).toHaveLength(0);
     },
   );
+
+  test.each(["memberRef", "resourceRef", "relation", "memberKind", "status"] as const)(
+    "add rejects a %s over 512 characters and stores nothing",
+    async (field) => {
+      const t = setup();
+      await expect(
+        t.mutation(api.example.add, { ...base, memberKind: "user", [field]: "x".repeat(513) }),
+      ).rejects.toMatchObject({ data: { code: "INVALID_ARGUMENT" } });
+      const all = await t.query(api.example.documents, { paginationOpts: PAGE });
+      expect(all.page).toHaveLength(0);
+      await t.mutation(api.example.add, { ...base, memberKind: "user", [field]: "x".repeat(512) });
+      expect((await t.query(api.example.documents, { paginationOpts: PAGE })).page).toHaveLength(1);
+    },
+  );
+
+  test("setRelation rejects a toRelation over 512 characters and leaves the edge untouched", async () => {
+    const t = setup();
+    await t.mutation(api.example.add, base);
+    await expect(
+      t.mutation(api.example.setRelation, {
+        memberRef: base.memberRef,
+        resourceRef: base.resourceRef,
+        fromRelation: "member",
+        toRelation: "x".repeat(513),
+      }),
+    ).rejects.toMatchObject({ data: { code: "INVALID_ARGUMENT" } });
+    expect(await t.query(api.example.isMember, base)).toBe(true);
+  });
 
   test.each(["memberRef", "resourceRef", "relation"] as const)(
     "remove rejects an empty %s and keeps the edge",

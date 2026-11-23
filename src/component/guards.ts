@@ -15,3 +15,16 @@ export function requireNonEmpty(fields: Record<string, string | undefined>): voi
     }
   }
 }
+
+export const MAX_REF_LENGTH = 512;
+
+export function requireMaxLength(fields: Record<string, string | undefined>): void {
+  for (const [name, value] of Object.entries(fields)) {
+    if (value !== undefined && value.length > MAX_REF_LENGTH) {
+      throw new ConvexError({
+        code: "INVALID_ARGUMENT",
+        message: `${name} must be at most ${MAX_REF_LENGTH} characters`,
+      });
+    }
+  }
+}

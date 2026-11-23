@@ -18,9 +18,6 @@ export default defineSchema({
     status: v.optional(v.string()),
     createdAt: v.number(),
   })
-    .index("by_member", ["memberRef"])
-    .index("by_resource", ["resourceRef"])
     .index("by_resource_relation", ["resourceRef", "relation"])
-    .index("by_member_resource", ["memberRef", "resourceRef"])
     .index("by_tuple", ["memberRef", "resourceRef", "relation"]),
 });
