@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format is based on
 
 ## [0.1.1] - Unreleased
 
+### Added
+
+- The npm tarball now ships `docs/API.md`, `CHANGELOG.md` and `llms.txt`, so the docs for the
+  installed version are at `node_modules/@vllnt/convex-memberships/docs/`. `llms.txt` links the
+  bundled files relatively. `pnpm test:package` (run in CI) fails when a required file is missing
+  from the tarball or a contributor-only file is included.
+- `docs/API.md` lists the package entry points, the `useIsMember` hook, result ordering, and that
+  `setRelation` rejects an empty `fromRelation` or `toRelation`.
+- README: "For coding agents" and "Related packages" sections.
+
 ### Fixed
 
 - `add`, `remove` and `setRelation` reject an empty `memberRef`, `resourceRef`, `relation`,

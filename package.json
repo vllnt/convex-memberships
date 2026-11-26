@@ -8,8 +8,12 @@
   "files": [
     "dist",
     "src",
+    "docs/API.md",
+    "CHANGELOG.md",
+    "llms.txt",
     "!src/**/*.test.*",
-    "!src/**/*.spec.*"],
+    "!src/**/*.spec.*"
+  ],
   "exports": {
     "./package.json": "./package.json",
     ".": {
@@ -49,6 +53,7 @@
     "test:watch": "vitest --typecheck --clearScreen false",
     "test:coverage": "vitest run --coverage --coverage.reporter=text",
     "generate:llms": "node scripts/generate-llms.mjs",
+    "test:package": "node scripts/test-package.mjs",
     "preversion": "pnpm install --frozen-lockfile && pnpm build && pnpm test:coverage && pnpm typecheck && pnpm generate:llms",
     "check:agents": "node -e \"const f=require('node:fs');if(!f.existsSync('AGENTS.md')||f.existsSync('CLAUDE.md')||f.existsSync('.claude'))process.exit(1)\"",
     "codegen": "pnpm convex codegen --component-dir ./src/component"
@@ -78,7 +83,7 @@
     "vite": "^8.3.8",
     "vitest": "^5.1.0"
   },
-  "homepage": "https://github.com/vllnt/convex-memberships#readme",
+  "homepage": "https://oss.vllnt.com/packages/convex-memberships",
   "bugs": {
     "url": "https://github.com/vllnt/convex-memberships/issues"
   },
@@ -104,7 +109,10 @@
   "keywords": [
     "convex",
     "convex-component",
-    "memberships"
+    "memberships",
+    "rebac",
+    "relationship-graph",
+    "auth-agnostic"
   ],
   "peerDependenciesMeta": {
     "react": {

@@ -5,21 +5,30 @@
 `@vllnt/convex-memberships` is a publishable Convex component. It targets `convex@^1.45.0`.
 It stores one sandboxed table - `memberships`, holding flat ReBAC edges `(memberRef, resourceRef, relation)` with an opaque, host-classified `memberKind` (default `"user"`) and an optional opaque `status`. It lists a resource's members and a member's resources with bounded pagination (`numItems` 1 through 1000 and `maximumRowsRead` capped at 1000; invalid numeric options throw `INVALID_PAGE_SIZE`), checks a membership (bounded `by_tuple` prefix lookup), changes a relation, and exposes full docs (`createdAt`, `status`) via `documents`. Edges are FLAT - no transitive expansion (`expandMembers` / `resolve` is vNext). The host owns identity, auth, and the rich entity; the component owns only the edges. `memberRef`, `resourceRef`, `relation`, `memberKind`, and `status` are opaque host strings the component never inspects. `add` is tuple-idempotent and patches `memberKind`/`status` on re-add. `setRelation` requires the source edge to exist before applying a same-relation no-op. The unscoped `isMember` (no `relation`) returns true for any stored relation — do not use it as an authz gate without enumerating acceptable relations.
 
+Entry points: `@vllnt/convex-memberships` (the `Memberships` client and its types), `/convex.config` (the component definition for `app.use`), `/react` (optional hooks `useIsMember`, `useMembers`, `useListMembers`), `/test` (`register` for `convex-test`).
+
+## For coding agents
+
+The docs are bundled in the npm package at `node_modules/@vllnt/convex-memberships/docs/` and match the installed version. Read them before writing code against this package. The TypeScript sources are in `node_modules/@vllnt/convex-memberships/src/`.
+
 ## Docs
 
-- [README](README.md): Project overview, installation, usage examples, architecture
-- [API Reference](docs/API.md): Public class methods, return shapes, input validation
-- [Changelog](CHANGELOG.md): Version history and release notes
-- [Contributing](CONTRIBUTING.md): Development setup, validation commands, release workflow
+- [README](./README.md): Project overview, installation, usage examples, security notes, related packages
+- [API Reference](./docs/API.md): Entry points, public class methods, return shapes, input validation
+- [Changelog](./CHANGELOG.md): Version history and release notes
+- [License](./LICENSE): MIT license
+
+## Ecosystem
+
+- [vllnt oss](https://oss.vllnt.com/llms.txt): Index of the vllnt open-source packages
 
 ## Examples
 
-- [Example component wrapper](example/convex/example.ts): Host-app wrapper functions
-- [Example tests](example/convex/example.test.ts): End-to-end usage coverage with `convex-test`
+- [Example component wrapper](https://github.com/vllnt/convex-memberships/blob/main/example/convex/example.ts): Host-app wrapper functions (not bundled; tracks `main`)
+- [Example tests](https://github.com/vllnt/convex-memberships/blob/main/example/convex/example.test.ts): End-to-end usage coverage with `convex-test` (not bundled; tracks `main`)
 
 ## Optional
 
-- [AGENTS](AGENTS.md): Canonical agent instructions for this repository
-- [Security Policy](SECURITY.md): Vulnerability reporting policy
-- [Code of Conduct](CODE_OF_CONDUCT.md): Community participation guidelines
-- [License](LICENSE): MIT license
+- [Contributing](https://github.com/vllnt/convex-memberships/blob/main/CONTRIBUTING.md): Development setup, validation commands, release workflow
+- [Security Policy](https://github.com/vllnt/convex-memberships/blob/main/SECURITY.md): Vulnerability reporting policy
+- [Code of Conduct](https://github.com/vllnt/convex-memberships/blob/main/CODE_OF_CONDUCT.md): Community participation guidelines
