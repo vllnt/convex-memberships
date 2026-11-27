@@ -161,8 +161,8 @@ member/resource; accepting the hook's args is not authorization.
 ## Security
 
 - **Auth-agnostic** — the host resolves identity, decides who may create/read an
-  edge, and passes opaque refs; tables are sandboxed (reached only via the
-  client).
+  edge, and passes opaque refs; tables are sandboxed (reached only through the
+  component's functions).
 - **`isMember` footgun** — called without `relation`, it returns `true` for
   **any** stored relation (`"invited"`, `"suspended"`, `"banned"`, …). For authz
   gates, always pass `relation` or enumerate the relations your policy accepts.
@@ -222,7 +222,8 @@ register(t);
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See
+[CONTRIBUTING.md](https://github.com/vllnt/convex-memberships/blob/main/CONTRIBUTING.md).
 
 ## Author
 

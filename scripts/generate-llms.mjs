@@ -5,14 +5,19 @@ import { existsSync, readFileSync } from "node:fs";
 // relatively so the link matches the installed version, never as a GitHub `main` URL.
 const REPO_BLOB = "https://github.com/vllnt/convex-memberships/blob/main/";
 const metadata = JSON.parse(readFileSync("package.json", "utf8"));
+// A "files" entry matches itself, anything below it, and `*` within one path segment.
 const shipped = [
   "package.json",
   "README.md",
   "LICENSE",
   ...metadata.files.filter((file) => !file.startsWith("!")),
-];
-const isShipped = (path) =>
-  shipped.some((entry) => path === entry || path.startsWith(`${entry}/`));
+].map(
+  (entry) =>
+    new RegExp(
+      `^${entry.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("*", "[^/]*")}(/|$)`,
+    ),
+);
+const isShipped = (path) => shipped.some((entry) => entry.test(path));
 
 const index = readFileSync("llms.txt", "utf8");
 for (const [, target] of index.matchAll(/\]\(([^)]+)\)/g)) {

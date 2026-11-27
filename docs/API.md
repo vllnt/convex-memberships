@@ -26,10 +26,11 @@ const memberships = new Memberships(components.memberships, {
 });
 ```
 
-All methods take the host `ctx` (a query or mutation context) as the first
-argument. A tuple is `(memberRef, resourceRef, relation)`; all three — plus
-`memberKind` and the optional `status` — are opaque host strings the component
-never inspects. Edges are FLAT — there is no transitive expansion (see
+All methods take the host `ctx` as the first argument: mutations need a mutation
+or action context (`ctx.runMutation`), queries any context with `ctx.runQuery`.
+A tuple is `(memberRef, resourceRef, relation)`; all three — plus `memberKind`
+and the optional `status` — are opaque host strings the component never
+inspects. Edges are FLAT — there is no transitive expansion (see
 [vNext](#vnext)).
 
 Listing methods are **paginated**: they take a Convex `paginationOpts`
@@ -61,8 +62,9 @@ Add the edge `(memberRef, resourceRef, relation)`, classified by the opaque
 tuple `(memberRef, resourceRef, relation)`: if the exact tuple already exists,
 the existing id is returned **and** `memberKind` / `status` are patched to the
 incoming values. Re-adding with a different `memberKind` updates the stored
-classification — the id is stable, the classification is current. `relation`
-defaults to `defaultRelation`, `memberKind` to `defaultMemberKind` (`"user"`).
+classification — the id is stable, the classification is current. Re-adding
+without `status` clears a stored `status`. `relation` defaults to
+`defaultRelation`, `memberKind` to `defaultMemberKind` (`"user"`).
 
 ### `remove(ctx, memberRef, resourceRef, relation?) → { removed }`
 

@@ -8,10 +8,11 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
-- The npm tarball now ships `docs/API.md`, `CHANGELOG.md` and `llms.txt`, so the docs for the
+- The npm tarball now ships `docs/*.md`, `CHANGELOG.md` and `llms.txt`, so the docs for the
   installed version are at `node_modules/@vllnt/convex-memberships/docs/`. `llms.txt` links the
   bundled files relatively. `pnpm test:package` (run in CI) fails when a required file is missing
-  from the tarball or a contributor-only file is included.
+  from the tarball, a contributor-only file is included, or the packed `/test` helper does not
+  compile in a consumer project.
 - `docs/API.md` lists the package entry points, the `useIsMember` hook, result ordering, and that
   `setRelation` rejects an empty `fromRelation` or `toRelation`.
 - README: "For coding agents" and "Related packages" sections.
@@ -25,6 +26,9 @@ All notable changes to this project are documented here. The format is based on
 - `@vllnt/convex-memberships/test` now type-checks under `moduleResolution: nodenext` (explicit
   `.js` relative imports, Vite client types referenced).
 - The published tarball no longer includes test files.
+- `register` from `@vllnt/convex-memberships/test` accepts a `convex-test` instance built from any
+  host schema. It was typed to the component's own schema, so the documented `register(t)` failed
+  to type-check when the host schema had tables.
 
 ### Changed
 
