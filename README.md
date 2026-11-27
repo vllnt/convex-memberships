@@ -51,6 +51,14 @@ command installs the latest stable release; use
 `@vllnt/convex-memberships@canary` for the newest pre-release build. Pin a
 resolved canary version for reproducible installs.
 
+## For coding agents
+
+The docs are bundled in the npm package at
+`node_modules/@vllnt/convex-memberships/docs/` and match the installed version.
+Read them before writing code against this package: `docs/API.md` is the API
+reference and `llms.txt` at the package root indexes the bundled files. The
+TypeScript sources are in `node_modules/@vllnt/convex-memberships/src/`.
+
 ## Usage
 
 ```ts
@@ -153,8 +161,8 @@ member/resource; accepting the hook's args is not authorization.
 ## Security
 
 - **Auth-agnostic** — the host resolves identity, decides who may create/read an
-  edge, and passes opaque refs; tables are sandboxed (reached only via the
-  client).
+  edge, and passes opaque refs; tables are sandboxed (reached only through the
+  component's functions).
 - **`isMember` footgun** — called without `relation`, it returns `true` for
   **any** stored relation (`"invited"`, `"suspended"`, `"banned"`, …). For authz
   gates, always pass `relation` or enumerate the relations your policy accepts.
@@ -174,6 +182,17 @@ member/resource; accepting the hook's args is not authorization.
   omitted), so a host that stamps `"suspended"` must pass it again.
 
 See [docs/API.md](docs/API.md).
+
+## Related packages
+
+Other [vllnt](https://oss.vllnt.com) Convex components that sit next to this
+one. Each is independent; the host connects them.
+
+| Package                                                                    | Use it when                                                                                                                                                              |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`@vllnt/convex-permissions`](https://github.com/vllnt/convex-permissions) | You need named roles with action grants and default-deny checks (`check` / `require`). This package stores relation edges only and never decides what a relation allows. |
+| [`@vllnt/convex-invitations`](https://github.com/vllnt/convex-invitations) | You need single-use, expiring invitations to a resource. `accept` returns the grant for the host to apply, for example with an `add` call on this package.               |
+| [`@vllnt/convex-buckets`](https://github.com/vllnt/convex-buckets)         | You need short-lived, capacity-bound groups such as matches, lobbies or cohorts. Use this package for standing relationships.                                            |
 
 ## Testing
 
@@ -203,7 +222,8 @@ register(t);
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See
+[CONTRIBUTING.md](https://github.com/vllnt/convex-memberships/blob/main/CONTRIBUTING.md).
 
 ## Author
 
@@ -218,3 +238,7 @@ If this is useful, [sponsor the work](https://github.com/sponsors/bntvllnt).
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+Part of vllnt oss: https://oss.vllnt.com

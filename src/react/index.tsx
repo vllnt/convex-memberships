@@ -6,8 +6,8 @@
  * `api`; this layer never imports it) plus the query args, and returns the
  * query result or `undefined` while it loads.
  *
- * `react` and `convex` are optional peer dependencies — a backend-only consumer
- * pulls none of this. Only metadata derived from the host's own refs reaches the
+ * `react` is an optional peer dependency — a backend-only consumer never
+ * imports this entry. Only metadata derived from the host's own refs reaches the
  * client; the component holds no secrets to leak.
  *
  * @module
@@ -37,7 +37,10 @@ export type IsMemberRef = FunctionReference<
 export type MembersRef = FunctionReference<
   "query",
   "public",
-  { memberRef: string; paginationOpts: { numItems: number; cursor: string | null } },
+  {
+    memberRef: string;
+    paginationOpts: { numItems: number; cursor: string | null };
+  },
   Page<ResourceEntry>
 >;
 
@@ -85,8 +88,8 @@ export function useIsMember(
  * Reactively list the resources `memberRef` relates to (one page).
  *
  * @param membersRef - the host's re-exported `members` query reference.
- * @param args - `memberRef` to resolve memberships for. Page size and cursor are
- * managed by the host's re-exported query; this hook requests the first page.
+ * @param args - `memberRef` to resolve memberships for. The hook always requests
+ * the first page (`{ numItems: 100, cursor: null }`) and offers no load-more.
  * @returns the resource-entry page, or `undefined` while the query loads.
  *
  * @example
@@ -110,8 +113,8 @@ export function useMembers(
  *
  * @param listMembersRef - the host's re-exported `listMembers` query reference.
  * @param args - `resourceRef` to resolve members for, and an optional `relation`
- * filter. Page size and cursor are managed by the host's re-exported query; this
- * hook requests the first page.
+ * filter. The hook always requests the first page
+ * (`{ numItems: 100, cursor: null }`) and offers no load-more.
  * @returns the member-entry page, or `undefined` while the query loads.
  *
  * @example

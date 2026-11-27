@@ -2,6 +2,20 @@
 
 **Compatibility:** `convex@^1.45.0`
 
+## Entry points
+
+| Import                                           | Provides                                                                                                                                                                                                                                                 |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@vllnt/convex-memberships`                      | The `Memberships` client, the `MembershipsComponent` interface, and the types `MemberEntry`, `MemberKind`, `MembershipDoc`, `MembershipsOptions`, `Page`, `PaginationOptions`, `RemoveResult`, `ResourceEntry`, `SetRelationReason`, `SetRelationResult` |
+| `@vllnt/convex-memberships/convex.config`        | The component definition. Pass it to `app.use(...)` in the host's `convex/convex.config.ts`.                                                                                                                                                             |
+| `@vllnt/convex-memberships/react`                | Optional hooks `useIsMember`, `useMembers`, `useListMembers` and the ref types `IsMemberRef`, `MembersRef`, `ListMembersRef` (see [React](#react)).                                                                                                      |
+| `@vllnt/convex-memberships/test`                 | `register(t, name = "memberships")`: mounts the component in a `convex-test` instance. Needs `convex-test` and Vite's `import.meta.glob`.                                                                                                                |
+| `@vllnt/convex-memberships/_generated/component` | The `ComponentApi` type for the component's function references (types only).                                                                                                                                                                            |
+
+`./convex.config.js` and `./_generated/component.js` resolve to the same files.
+
+## Client
+
 Construct the client with the mounted component and optional config:
 
 ```ts
@@ -12,10 +26,11 @@ const memberships = new Memberships(components.memberships, {
 });
 ```
 
-All methods take the host `ctx` (a query or mutation context) as the first
-argument. A tuple is `(memberRef, resourceRef, relation)`; all three — plus
-`memberKind` and the optional `status` — are opaque host strings the component
-never inspects. Edges are FLAT — there is no transitive expansion (see
+All methods take the host `ctx` as the first argument: mutations need a mutation
+or action context (`ctx.runMutation`), queries any context with `ctx.runQuery`.
+A tuple is `(memberRef, resourceRef, relation)`; all three — plus `memberKind`
+and the optional `status` — are opaque host strings the component never
+inspects. Edges are FLAT — there is no transitive expansion (see
 [vNext](#vnext)).
 
 Listing methods are **paginated**: they take a Convex `paginationOpts`
@@ -24,14 +39,19 @@ Listing methods are **paginated**: they take a Convex `paginationOpts`
 provided, must be a positive finite integer and is capped at 1000 so explicit
 reactive cursor ranges remain bounded. Invalid numeric values throw
 `INVALID_PAGE_SIZE`. Feed the returned `continueCursor` back as the next call's
-`cursor`; `isDone` is true on the last page.
+`cursor`; `isDone` is true on the last page. Each query returns rows in the
+order of the index it reads, then insertion time: `listMembers` by `relation`
+within the resource; `members` by `resourceRef`, then `relation`; `documents` by
+`relation` when scoped to a `resourceRef`, by `resourceRef` then `relation` when
+scoped to a `memberRef`, and by insertion time when unscoped.
 
-Mutations reject an empty `memberRef`, `resourceRef`, `relation`, `memberKind`
-or `status` with `ConvexError({ code: "INVALID_ARGUMENT" })`. Queries accept
-empty strings (placeholders) and find nothing. The component performs no role or
-permission checks and cannot read `ctx.auth`: the host authorizes the caller and
-any role change, and protects the last owner of a resource (see the README
-Security section).
+Mutations reject an empty `memberRef`, `resourceRef`, `relation`, `memberKind`,
+`status`, `fromRelation` or `toRelation` with
+`ConvexError({ code: "INVALID_ARGUMENT" })`. Queries accept empty strings
+(placeholders) and find nothing. The component performs no role or permission
+checks and cannot read `ctx.auth`: the host authorizes the caller and any role
+change, and protects the last owner of a resource (see the README Security
+section).
 
 ## Mutations
 
@@ -42,8 +62,9 @@ Add the edge `(memberRef, resourceRef, relation)`, classified by the opaque
 tuple `(memberRef, resourceRef, relation)`: if the exact tuple already exists,
 the existing id is returned **and** `memberKind` / `status` are patched to the
 incoming values. Re-adding with a different `memberKind` updates the stored
-classification — the id is stable, the classification is current. `relation`
-defaults to `defaultRelation`, `memberKind` to `defaultMemberKind` (`"user"`).
+classification — the id is stable, the classification is current. Re-adding
+without `status` clears a stored `status`. `relation` defaults to
+`defaultRelation`, `memberKind` to `defaultMemberKind` (`"user"`).
 
 ### `remove(ctx, memberRef, resourceRef, relation?) → { removed }`
 
@@ -99,6 +120,19 @@ exposing the stored `createdAt` and `status`. `filter` optionally scopes by
 paginates every edge.
 
 ## React
+
+Import from `@vllnt/convex-memberships/react`. `react` (`>=18`) is an optional
+peer dependency; a backend-only consumer never loads this entry.
+
+| Hook                                                              | Returns                                                   |
+| ----------------------------------------------------------------- | --------------------------------------------------------- |
+| `useIsMember(isMemberRef, { memberRef, resourceRef, relation? })` | `boolean \| undefined` (`undefined` while loading)        |
+| `useMembers(membersRef, { memberRef })`                           | first `Page<ResourceEntry>`, or `undefined` while loading |
+| `useListMembers(listMembersRef, { resourceRef, relation? })`      | first `Page<MemberEntry>`, or `undefined` while loading   |
+
+Each `*Ref` argument is the host's re-exported query reference (`IsMemberRef`,
+`MembersRef`, `ListMembersRef`). Without `relation`, `useIsMember` has the same
+any-relation behavior as the unscoped `isMember` (see the warning above).
 
 `useMembers` and `useListMembers` request only
 `{ numItems: 100, cursor: null }`. They return the page object, including
