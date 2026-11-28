@@ -8,6 +8,13 @@ override what you may have learned about Convex from training data.
 Convex agent skills for common tasks can be installed by running `npx convex ai-files install`.
 <!-- convex-ai-end -->
 
+`example/convex/_generated/ai/guidelines.md` is generated and git-ignored, so a fresh clone does not
+have it. If it is missing, first add `"aiFiles": { "skills": { "agents": [] } }` to `convex.json` so
+the CLI skips its unpinned `npx --yes skills@latest` step, then run
+`pnpm exec convex ai-files install` at the repository root (network access, no login or deployment),
+delete the `CLAUDE.md` it creates (`pnpm lint` fails while `CLAUDE.md` or `.claude/` exists), undo
+its rewrap of the section above and the `convex.json` edit, and commit none of its output.
+
 # @vllnt/convex-memberships
 
 Auth-agnostic membership and relationship graph (ReBAC tuples), as a Convex component. Follows the
@@ -28,8 +35,11 @@ src/
 │   ├── index.ts           # Memberships client class (consumer-facing API)
 │   └── types.ts           # public TypeScript interfaces
 ├── react/
-│   └── index.tsx          # optional ./react entry — useIsMember, useMembers, useListMembers
+│   ├── index.tsx          # optional ./react entry — useIsMember, useMembers, useListMembers
+│   └── index.test.tsx     # hook tests (jsdom)
 └── component/
+    ├── _generated/         # Convex codegen output (`pnpm codegen`), never edit
+    ├── guards.ts           # requireNonEmpty() write-path argument guard
     ├── mutations.ts        # all mutations
     ├── queries.ts          # all queries
     ├── validators.ts       # shared validators
