@@ -4,11 +4,14 @@
     // Type-check only (no emit), so files outside src/ may join the program.
     "rootDir": "."
   },
+  // Test files join so CI type-checks them; vitest strips types without checking.
   // host_schema.test.ts: `register(t)` from a host schema with its own tables.
   "include": [
     "src/shared.ts",
     "src/client/**/*",
-    "example/convex/host_schema.test.ts"
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "example/convex/**/*.test.ts"
   ],
   "exclude": ["node_modules", "dist", "src/component/**/*", "src/test.ts"]
 }

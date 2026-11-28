@@ -69,9 +69,10 @@ sandboxed table is unreachable by the host except through the component's export
 - **Opaque refs throughout.** `memberRef`, `resourceRef`, `relation`, `memberKind`, and `status`
   are arbitrary host strings. The component never inspects, de-references, or validates their shape.
 - **Optional `./react` entry.** Thin hooks (`useIsMember`, `useMembers`, `useListMembers`) wrap
-  `useQuery` over the host's re-exported function refs. `react` is an optional peer dep — a
-  backend-only consumer installs with zero React. No secrets reach the client; only membership
-  metadata derived from the caller's own refs.
+  `useQuery` over a host query that wraps the component and authorizes the caller. Never pass a
+  plain re-export of a component query: the hook's args come from the client, so any client could
+  read any member's or resource's edges. `react` is an optional peer dep — a backend-only
+  consumer installs with zero React.
 
 ## Docs sync
 

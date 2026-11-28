@@ -1,4 +1,5 @@
 import { convexTest } from "convex-test";
+import type { FunctionReturnType } from "convex/server";
 import { describe, expect, test } from "vitest";
 import { api } from "./_generated/api";
 import schema from "./schema";
@@ -102,7 +103,7 @@ describe("memberships — add", () => {
       resourceRef: "org_1",
       paginationOpts: PAGE,
     });
-    expect(docs.page[0].memberKind).toBe("service-account");
+    expect(docs.page[0]?.memberKind).toBe("service-account");
   });
 
   test("add stamps an opaque status and exposes it via documents", async () => {
@@ -117,8 +118,8 @@ describe("memberships — add", () => {
       resourceRef: "org_1",
       paginationOpts: PAGE,
     });
-    expect(docs.page[0].status).toBe("invited");
-    expect(typeof docs.page[0].createdAt).toBe("number");
+    expect(docs.page[0]?.status).toBe("invited");
+    expect(typeof docs.page[0]?.createdAt).toBe("number");
   });
 
   test("re-adding without status clears a stored status and keeps the id", async () => {
@@ -131,7 +132,7 @@ describe("memberships — add", () => {
       paginationOpts: PAGE,
     });
     expect(docs.page).toHaveLength(1);
-    expect(docs.page[0].status).toBeUndefined();
+    expect(docs.page[0]?.status).toBeUndefined();
   });
 });
 
@@ -220,7 +221,7 @@ describe("memberships — setRelation", () => {
       paginationOpts: PAGE,
     });
     expect(list.page).toHaveLength(1);
-    expect(list.page[0].relation).toBe("admin");
+    expect(list.page[0]?.relation).toBe("admin");
   });
 
   test("setRelation where from === to is a no-op ok (no false EXISTS)", async () => {
@@ -242,7 +243,7 @@ describe("memberships — setRelation", () => {
       paginationOpts: PAGE,
     });
     expect(list.page).toHaveLength(1);
-    expect(list.page[0].relation).toBe("member");
+    expect(list.page[0]?.relation).toBe("member");
   });
 
   test("setRelation on a missing edge is rejected (NOT_FOUND)", async () => {
@@ -345,7 +346,8 @@ describe("memberships — listMembers", () => {
     let isDone = false;
     let guard = 0;
     while (!isDone && guard < 10) {
-      const res = await t.query(api.example.listMembers, {
+      type Page = FunctionReturnType<typeof api.example.listMembers>;
+      const res: Page = await t.query(api.example.listMembers, {
         resourceRef: "org_1",
         paginationOpts: { numItems: 2, cursor },
       });
@@ -433,7 +435,8 @@ describe("memberships — members", () => {
     let isDone = false;
     let guard = 0;
     while (!isDone && guard < 10) {
-      const res = await t.query(api.example.members, {
+      type Page = FunctionReturnType<typeof api.example.members>;
+      const res: Page = await t.query(api.example.members, {
         memberRef: "user_1",
         paginationOpts: { numItems: 2, cursor },
       });
@@ -531,7 +534,7 @@ describe("memberships — documents", () => {
       paginationOpts: PAGE,
     });
     expect(docs.page).toHaveLength(1);
-    expect(docs.page[0].memberRef).toBe("user_1");
+    expect(docs.page[0]?.memberRef).toBe("user_1");
   });
 
   test("paginates all edges when unscoped", async () => {
@@ -646,7 +649,7 @@ describe("memberships — add re-add with different memberKind patches the row",
       paginationOpts: PAGE,
     });
     expect(list.page).toHaveLength(1);
-    expect(list.page[0].memberKind).toBe("service-account");
+    expect(list.page[0]?.memberKind).toBe("service-account");
   });
 });
 
@@ -709,13 +712,13 @@ describe("memberships — isolation: listMembers and members scoped per resource
       paginationOpts: PAGE,
     });
     expect(org2Members.page).toHaveLength(1);
-    expect(org2Members.page[0].memberRef).toBe("user_2");
+    expect(org2Members.page[0]?.memberRef).toBe("user_2");
     const org1Members = await t.query(api.example.listMembers, {
       resourceRef: "org_1",
       paginationOpts: PAGE,
     });
     expect(org1Members.page).toHaveLength(1);
-    expect(org1Members.page[0].memberRef).toBe("user_1");
+    expect(org1Members.page[0]?.memberRef).toBe("user_1");
   });
 
   test("members(user_2) excludes user_1's resources", async () => {
@@ -735,7 +738,7 @@ describe("memberships — isolation: listMembers and members scoped per resource
       paginationOpts: PAGE,
     });
     expect(user2Resources.page).toHaveLength(1);
-    expect(user2Resources.page[0].resourceRef).toBe("org_2");
+    expect(user2Resources.page[0]?.resourceRef).toBe("org_2");
   });
 });
 
@@ -818,8 +821,8 @@ describe("memberships — documents branching", () => {
       paginationOpts: PAGE,
     });
     expect(docs.page).toHaveLength(1);
-    expect(docs.page[0].resourceRef).toBe("org_1");
-    expect(docs.page[0].memberRef).toBe("user_1");
+    expect(docs.page[0]?.resourceRef).toBe("org_1");
+    expect(docs.page[0]?.memberRef).toBe("user_1");
   });
 
   test("resourceRef-only branch: returns docs scoped to that resource", async () => {
@@ -839,7 +842,7 @@ describe("memberships — documents branching", () => {
       paginationOpts: PAGE,
     });
     expect(docs.page).toHaveLength(1);
-    expect(docs.page[0].resourceRef).toBe("org_1");
+    expect(docs.page[0]?.resourceRef).toBe("org_1");
   });
 
   test("listMembers page shape: has page, isDone, continueCursor fields", async () => {
