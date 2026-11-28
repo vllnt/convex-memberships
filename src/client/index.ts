@@ -106,6 +106,8 @@ interface RunMutationCtx {
  * Consumer-facing client for the flat ReBAC relationship graph. The host owns
  * identity, the rich entity, and auth; it passes opaque `memberRef` /
  * `resourceRef` strings and an optional `relation` into the client.
+ *
+ * @see https://oss.vllnt.com/packages/convex-memberships
  */
 export class Memberships {
   private readonly defaultRelation: string;
@@ -129,8 +131,10 @@ export class Memberships {
 
   /**
    * Add the edge `(memberRef, resourceRef, relation)`, classified by
-   * `memberKind` and optionally stamped with an opaque `status`. Idempotent —
-   * returns the existing id if the exact tuple is already held.
+   * `memberKind` and optionally stamped with an opaque `status`. Idempotent on
+   * the tuple: if it already exists, returns the existing id and sets
+   * `memberKind` and `status` to the incoming values (omitting `status` clears
+   * a stored one).
    */
   add(
     ctx: RunMutationCtx,

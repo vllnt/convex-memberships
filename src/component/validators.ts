@@ -3,7 +3,8 @@ import { v } from "convex/values";
 /**
  * What a tuple's `memberRef` points at — an opaque, host-classified string
  * (e.g. `"user"`, `"group"`, `"resource"`, or any host-defined kind). The
- * component never interprets it. Defaults to `"user"` when the host omits it.
+ * component never interprets it and requires it on every write; the
+ * `Memberships` client defaults it to `"user"` (`defaultMemberKind`).
  */
 export const memberKind = v.string();
 

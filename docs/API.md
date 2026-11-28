@@ -1,152 +1,313 @@
 # API Reference — @vllnt/convex-memberships
 
-**Compatibility:** `convex@^1.45.0`
+**Compatibility:** `convex@^1.45.0`; React `>=18` (optional, `./react` only)
 
 ## Entry points
 
-| Import                                           | Provides                                                                                                                                                                                                                                                 |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@vllnt/convex-memberships`                      | The `Memberships` client, the `MembershipsComponent` interface, and the types `MemberEntry`, `MemberKind`, `MembershipDoc`, `MembershipsOptions`, `Page`, `PaginationOptions`, `RemoveResult`, `ResourceEntry`, `SetRelationReason`, `SetRelationResult` |
-| `@vllnt/convex-memberships/convex.config`        | The component definition. Pass it to `app.use(...)` in the host's `convex/convex.config.ts`.                                                                                                                                                             |
-| `@vllnt/convex-memberships/react`                | Optional hooks `useIsMember`, `useMembers`, `useListMembers` and the ref types `IsMemberRef`, `MembersRef`, `ListMembersRef` (see [React](#react)).                                                                                                      |
-| `@vllnt/convex-memberships/test`                 | `register(t, name = "memberships")`: mounts the component in a `convex-test` instance. Needs `convex-test` and Vite's `import.meta.glob`.                                                                                                                |
-| `@vllnt/convex-memberships/_generated/component` | The `ComponentApi` type for the component's function references (types only).                                                                                                                                                                            |
+| Import                                                      | Exports                                                                                                                                                                                                   |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@vllnt/convex-memberships`                                 | `Memberships` class; types `MembershipsComponent`, `MembershipsOptions`, `MemberEntry`, `ResourceEntry`, `MembershipDoc`, `MemberKind`, `Page`, `PaginationOptions`, `RemoveResult`, `SetRelationResult`, `SetRelationReason` |
+| `@vllnt/convex-memberships/react`                           | hooks `useIsMember`, `useMembers`, `useListMembers`; types `IsMemberRef`, `MembersRef`, `ListMembersRef`                                                                                                  |
+| `@vllnt/convex-memberships/convex.config` (or `.js`)        | default component config for `app.use(...)`                                                                                                                                                               |
+| `@vllnt/convex-memberships/test`                            | `register(t, name = "memberships")` for `convex-test` (TypeScript source; needs Vite `import.meta.glob`)                                                                                                  |
+| `@vllnt/convex-memberships/_generated/component` (or `.js`) | type `ComponentApi`                                                                                                                                                                                       |
 
-`./convex.config.js` and `./_generated/component.js` resolve to the same files.
+An edge is the tuple `(memberRef, resourceRef, relation)`, with an opaque
+`memberKind` and an optional opaque `status`. All five are host strings the
+component stores and compares but never interprets. Edges are flat: there is no
+transitive expansion (see [vNext](#vnext)).
 
 ## Client
 
-Construct the client with the mounted component and optional config:
+### `Memberships`
 
 ```ts
-import { Memberships } from "@vllnt/convex-memberships";
-const memberships = new Memberships(components.memberships, {
-  defaultRelation: "member", // relation applied when a call omits `relation`
-  defaultMemberKind: "user", // member kind applied when a call omits `memberKind`
-});
+new Memberships(component: MembershipsComponent, options?: MembershipsOptions)
 ```
 
-All methods take the host `ctx` as the first argument: mutations need a mutation
-or action context (`ctx.runMutation`), queries any context with `ctx.runQuery`.
-A tuple is `(memberRef, resourceRef, relation)`; all three — plus `memberKind`
-and the optional `status` — are opaque host strings the component never
-inspects. Edges are FLAT — there is no transitive expansion (see
-[vNext](#vnext)).
+`component` is the mounted component, `components.memberships` (or the name
+passed to `app.use`). `options.defaultRelation` (default `"member"`) is used
+by `add` and `remove` when `relation` is omitted; `options.defaultMemberKind`
+(default `"user"`) is used by `add` when `memberKind` is omitted. `listMembers`
+and `isMember` treat an omitted `relation` as any relation. Mutations take a context with
+`ctx.runMutation` (a mutation or action); queries take a context with
+`ctx.runQuery` (a query, mutation or action).
 
-Listing methods are **paginated**: they take a Convex `paginationOpts`
-(`{ numItems, cursor }`) and return `{ page, isDone, continueCursor }`.
-`numItems` must be an integer from 1 through 1000. `maximumRowsRead`, when
-provided, must be a positive finite integer and is capped at 1000 so explicit
-reactive cursor ranges remain bounded. Invalid numeric values throw
-`INVALID_PAGE_SIZE`. Feed the returned `continueCursor` back as the next call's
-`cursor`; `isDone` is true on the last page. Each query returns rows in the
-order of the index it reads, then insertion time: `listMembers` by `relation`
-within the resource; `members` by `resourceRef`, then `relation`; `documents` by
-`relation` when scoped to a `resourceRef`, by `resourceRef` then `relation` when
-scoped to a `memberRef`, and by insertion time when unscoped.
+The component performs no authentication or authorization and never reads
+`ctx.auth`. The host authorizes every call, including who may grant or revoke
+which relation, and protects the last owner of a resource (see the README
+[Security](../README.md#security) section).
 
-Mutations reject an empty `memberRef`, `resourceRef`, `relation`, `memberKind`,
-`status`, `fromRelation` or `toRelation` with
-`ConvexError({ code: "INVALID_ARGUMENT" })`. Queries accept empty strings
-(placeholders) and find nothing. The component performs no role or permission
-checks and cannot read `ctx.auth`: the host authorizes the caller and any role
-change, and protects the last owner of a resource (see the README Security
-section).
+### `add`
 
-## Mutations
+```ts
+add(ctx, memberRef: string, resourceRef: string, relation?: string, memberKind?: MemberKind, status?: string): Promise<string>
+```
 
-### `add(ctx, memberRef, resourceRef, relation?, memberKind?, status?) → id`
+Adds the edge and returns its document id. `relation` defaults to
+`defaultRelation`, `memberKind` to `defaultMemberKind`. Idempotent on the tuple
+`(memberRef, resourceRef, relation)`: when the tuple exists, it returns the
+existing id **and** sets `memberKind` and `status` to the incoming values
+(omitting `status` clears a stored one). Nothing is written when both already
+match. New edges get `createdAt = Date.now()`. Throws `INVALID_ARGUMENT` when
+`memberRef`, `resourceRef`, `relation`, `memberKind` or `status` is `""`.
 
-Add the edge `(memberRef, resourceRef, relation)`, classified by the opaque
-`memberKind` and optionally stamped with an opaque `status`. Idempotent on the
-tuple `(memberRef, resourceRef, relation)`: if the exact tuple already exists,
-the existing id is returned **and** `memberKind` / `status` are patched to the
-incoming values. Re-adding with a different `memberKind` updates the stored
-classification — the id is stable, the classification is current. Re-adding
-without `status` clears a stored `status`. `relation` defaults to
-`defaultRelation`, `memberKind` to `defaultMemberKind` (`"user"`).
+### `remove`
 
-### `remove(ctx, memberRef, resourceRef, relation?) → { removed }`
+```ts
+remove(ctx, memberRef: string, resourceRef: string, relation?: string): Promise<RemoveResult>
+```
 
-Remove the edge `(memberRef, resourceRef, relation)`. Idempotent — returns
-`{ removed: true }` when an edge was deleted, `{ removed: false }` when none
-existed.
+Deletes the edge. Returns `{ removed: true }` when an edge was deleted and
+`{ removed: false }` when none existed. `relation` defaults to
+`defaultRelation`. Throws `INVALID_ARGUMENT` for an empty `memberRef`,
+`resourceRef` or `relation`.
 
-### `setRelation(ctx, memberRef, resourceRef, fromRelation, toRelation) → { ok, reason? }`
+### `setRelation`
 
-Move the member's edge on the resource from `fromRelation` to `toRelation`. The
-`fromRelation` edge **must exist** — if it does not, returns
-`{ ok: false, reason: "NOT_FOUND" }` regardless of whether `fromRelation` equals
-`toRelation`. When the edge exists and `fromRelation === toRelation`, it is a
-no-op `{ ok: true }`. Returns `{ ok: false, reason: "EXISTS" }` if a
-`toRelation` edge already exists; otherwise patches the relation and returns
-`{ ok: true }`. `reason` is the typed union `"NOT_FOUND" | "EXISTS"`.
+```ts
+setRelation(ctx, memberRef: string, resourceRef: string, fromRelation: string, toRelation: string): Promise<SetRelationResult>
+```
 
-> **Note:** `setRelation(m, r, "x", "x")` on a non-existent edge returns
-> `{ ok: false, reason: "NOT_FOUND" }`, not `{ ok: true }`. The no-op only fires
-> when the source edge is confirmed to exist.
+Moves the member's `fromRelation` edge on the resource to `toRelation`, keeping
+its id, `memberKind`, `status` and `createdAt`. In order:
 
-## Queries
+1. No `fromRelation` edge: `{ ok: false, reason: "NOT_FOUND" }`, also when
+   `fromRelation === toRelation`.
+2. `fromRelation === toRelation`: `{ ok: true }`, nothing written.
+3. A `toRelation` edge already exists: `{ ok: false, reason: "EXISTS" }`,
+   nothing written.
+4. Otherwise the relation is changed and the result is `{ ok: true }`.
 
-### `listMembers(ctx, resourceRef, paginationOpts, relation?) → Page<MemberEntry>`
+Throws `INVALID_ARGUMENT` for an empty `memberRef`, `resourceRef`,
+`fromRelation` or `toRelation`.
 
-One page of members of `resourceRef` as `{ memberRef, memberKind, relation }`.
-Filtered to a single `relation` when given.
+### `listMembers`
 
-### `members(ctx, memberRef, paginationOpts) → Page<ResourceEntry>`
+```ts
+listMembers(ctx, resourceRef: string, paginationOpts: PaginationOptions, relation?: string): Promise<Page<MemberEntry>>
+```
 
-One page of resources `memberRef` relates to, as `{ resourceRef, relation }`.
+One page of the members of `resourceRef` as
+`{ memberRef, memberKind, relation }`, narrowed to one `relation` when given.
+Ordered by relation, then insertion time (index `by_resource_relation`); with
+`relation`, by insertion time.
 
-### `isMember(ctx, memberRef, resourceRef, relation?) → boolean`
+### `members`
 
-Whether `memberRef` relates to `resourceRef`. With `relation`, checks that exact
-edge; without, a bounded `by_tuple` index prefix lookup checks whether any
-relation connects the two (not a full member scan).
+```ts
+members(ctx, memberRef: string, paginationOpts: PaginationOptions): Promise<Page<ResourceEntry>>
+```
 
-> **Security warning — unscoped path.** When `relation` is omitted, this method
-> returns `true` for **any** relation stored between the pair (e.g. `"invited"`,
-> `"suspended"`, `"banned"`). Do **not** use the unscoped path as an
-> authorization gate without first enumerating every relation your policy
-> considers sufficient for the guarded action. Use the scoped path (`relation`
-> provided) for authz checks, or enumerate acceptable relations explicitly
-> before calling.
+One page of the resources `memberRef` relates to, as `{ resourceRef, relation }`.
+Ordered by resource, then relation, then insertion time (index `by_tuple`).
 
-### `documents(ctx, paginationOpts, filter?) → Page<MembershipDoc>`
+### `isMember`
 
-One page of full membership docs —
-`{ memberRef, memberKind, resourceRef, relation, status?, createdAt }` —
-exposing the stored `createdAt` and `status`. `filter` optionally scopes by
-`{ resourceRef }` or `{ memberRef }` (resource wins if both are given); unscoped
-paginates every edge.
+```ts
+isMember(ctx, memberRef: string, resourceRef: string, relation?: string): Promise<boolean>
+```
+
+With `relation`, whether that exact edge exists. Without it, whether **any**
+relation connects the pair (one indexed lookup on the `by_tuple` prefix, not a
+member scan). It does not look at `status`.
+
+> **Security warning: unscoped path.** Without `relation` this returns `true`
+> for any stored relation, including `"invited"`, `"suspended"` or `"banned"`.
+> Do not use it as an authorization gate. Pass `relation`, or check each
+> relation your policy accepts.
+
+### `documents`
+
+```ts
+documents(ctx, paginationOpts: PaginationOptions, filter?: { resourceRef?: string; memberRef?: string }): Promise<Page<MembershipDoc>>
+```
+
+One page of full edges,
+`{ memberRef, memberKind, resourceRef, relation, status?, createdAt }`. With
+`filter.resourceRef` it pages that resource's edges, ordered by relation then
+insertion time; `filter.memberRef` is ignored when `resourceRef` is also given.
+With only `filter.memberRef` it pages that member's edges, ordered by resource,
+relation, then insertion time. With no filter it pages every edge in the
+component by insertion time.
+
+### Pagination
+
+`listMembers`, `members` and `documents` take a Convex `paginationOpts`
+(`{ numItems, cursor }`) and return `{ page, isDone, continueCursor }`. Start
+with `cursor: null`, then pass the returned `continueCursor` until `isDone` is
+`true`.
+
+- `numItems` must be an integer from 1 through 1000, otherwise
+  `INVALID_PAGE_SIZE`.
+- `maximumRowsRead`, when given, must be a positive finite integer, otherwise
+  `INVALID_PAGE_SIZE`. It defaults to 1000, and larger values are lowered to
+  1000, so explicit reactive cursor ranges stay bounded.
+- Do not reuse a cursor issued by 0.1.0: the indexes changed, so restart from
+  `cursor: null`.
+
+### Empty strings
+
+Mutations reject an empty string in any ref, relation, `memberKind` or `status`
+with `INVALID_ARGUMENT`. Queries accept empty strings, so a UI can pass `""`
+while an id loads; such a query finds nothing unless an edge with that empty
+value was stored by 0.1.0, which accepted empty strings.
+
+## Types
+
+### `MembershipsComponent`
+
+The type of `components.memberships`: `mutations` (`add`, `remove`,
+`setRelation`) and `queries` (`listMembers`, `members`, `isMember`,
+`documents`) as internal function references. The generated
+[`ComponentApi`](#componentapi) has the same shape.
+
+### `MembershipsOptions`
+
+`{ defaultRelation?: string; defaultMemberKind?: MemberKind }`. Defaults
+`"member"` (used by `add` and `remove`) and `"user"` (used by `add`). An empty value makes every write that uses it throw
+`INVALID_ARGUMENT`.
+
+### `MemberEntry`
+
+`{ memberRef: string; memberKind: MemberKind; relation: string }`. A row of
+`listMembers`.
+
+### `ResourceEntry`
+
+`{ resourceRef: string; relation: string }`. A row of `members`.
+
+### `MembershipDoc`
+
+`{ memberRef: string; memberKind: MemberKind; resourceRef: string; relation: string; status?: string; createdAt: number }`.
+A row of `documents`. `createdAt` is epoch milliseconds of the first insert.
+
+### `MemberKind`
+
+`string`. An opaque, host-chosen classification of the member, for example
+`"user"` or `"group"`.
+
+### `Page`
+
+`Page<T>` is `{ page: T[]; isDone: boolean; continueCursor: string }`, picked
+from Convex `PaginationResult<T>`.
+
+### `PaginationOptions`
+
+Re-exported from `convex/server`: `{ numItems: number; cursor: string | null }`
+plus Convex's optional fields such as `maximumRowsRead`. See
+[Pagination](#pagination) for the bounds.
+
+### `RemoveResult`
+
+`{ removed: boolean }`.
+
+### `SetRelationResult`
+
+`{ ok: boolean; reason?: SetRelationReason }`. `reason` is set only when `ok` is
+`false`.
+
+### `SetRelationReason`
+
+`"NOT_FOUND" | "EXISTS"`. See [`setRelation`](#setrelation).
 
 ## React
 
 Import from `@vllnt/convex-memberships/react`. `react` (`>=18`) is an optional
-peer dependency; a backend-only consumer never loads this entry.
+peer dependency. Each hook calls `useQuery` from `convex/react` with a
+reference to a host query (for example `api.memberships.isMember`) and returns
+`undefined` while it loads. That host query must wrap the component and
+authorize the caller for the requested member and resource. Do not re-export a
+component query as is: the hook's args come from the client, so any client
+could then read any resource's members.
 
-| Hook                                                              | Returns                                                   |
-| ----------------------------------------------------------------- | --------------------------------------------------------- |
-| `useIsMember(isMemberRef, { memberRef, resourceRef, relation? })` | `boolean \| undefined` (`undefined` while loading)        |
-| `useMembers(membersRef, { memberRef })`                           | first `Page<ResourceEntry>`, or `undefined` while loading |
-| `useListMembers(listMembersRef, { resourceRef, relation? })`      | first `Page<MemberEntry>`, or `undefined` while loading   |
+### `useIsMember`
 
-Each `*Ref` argument is the host's re-exported query reference (`IsMemberRef`,
-`MembersRef`, `ListMembersRef`). Without `relation`, `useIsMember` has the same
-any-relation behavior as the unscoped `isMember` (see the warning above).
+```ts
+useIsMember(isMemberRef: IsMemberRef, args: { memberRef: string; resourceRef: string; relation?: string }): boolean | undefined
+```
 
-`useMembers` and `useListMembers` request only
-`{ numItems: 100, cursor: null }`. They return the page object, including
-`isDone` and `continueCursor`, but provide no load-more control. Use an
-authorized host query with explicit pagination (or Convex's `usePaginatedQuery`)
-when the first page is not enough.
+Without `relation` it has the same any-relation behavior as
+[`isMember`](#ismember).
 
-All hooks consume host query references. The host must authorize the requested
-member/resource; component isolation alone does not make metadata public.
-`isMember` does not filter by `status`: apply any status-based policy in the
-host.
+### `useMembers`
+
+```ts
+useMembers(membersRef: MembersRef, args: { memberRef: string }): Page<ResourceEntry> | undefined
+```
+
+Requests `{ numItems: 100, cursor: null }`: the first page only, with no
+load-more. Use a paginated host query for more.
+
+### `useListMembers`
+
+```ts
+useListMembers(listMembersRef: ListMembersRef, args: { resourceRef: string; relation?: string }): Page<MemberEntry> | undefined
+```
+
+Requests `{ numItems: 100, cursor: null }`: the first page only, with no
+load-more.
+
+### `IsMemberRef`
+
+`FunctionReference<"query", "public", { memberRef: string; resourceRef: string; relation?: string }, boolean>`.
+
+### `MembersRef`
+
+`FunctionReference<"query", "public", { memberRef: string; paginationOpts: { numItems: number; cursor: string | null } }, Page<ResourceEntry>>`.
+
+### `ListMembersRef`
+
+`FunctionReference<"query", "public", { resourceRef: string; relation?: string; paginationOpts: { numItems: number; cursor: string | null } }, Page<MemberEntry>>`.
+
+## Other entry points
+
+### `convex.config`
+
+The default export of `@vllnt/convex-memberships/convex.config` is the
+component definition (`defineComponent("memberships")`). Mount it with
+`app.use(memberships)`, or `app.use(memberships, { name })` for several
+isolated mounts.
+
+### `register`
+
+```ts
+register<TSchema extends GenericSchema>(t: TestConvex<SchemaDefinition<TSchema, boolean>>, name = "memberships"): void
+```
+
+From `@vllnt/convex-memberships/test`. Mounts the component in a `convex-test`
+instance built from any host schema, under `name` (default `"memberships"`).
+Shipped as TypeScript source that uses Vite's `import.meta.glob`, so run it
+under Vitest.
+
+### `ComponentApi`
+
+From `@vllnt/convex-memberships/_generated/component`. The Convex-generated
+type of the mounted component (types only).
+
+## Errors
+
+Invalid input throws a `ConvexError` whose `data` is `{ code, message }`:
+
+- `INVALID_ARGUMENT` from `add`, `remove` and `setRelation`: an empty string
+  argument. Message `<field> must not be empty`.
+- `INVALID_PAGE_SIZE` from `listMembers`, `members` and `documents`: a
+  `numItems` or `maximumRowsRead` outside the bounds under
+  [Pagination](#pagination).
+
+`setRelation` returns `reason` `NOT_FOUND` or `EXISTS` instead of throwing.
+Causes and fixes are in the README's
+[Errors and fixes](../README.md#errors-and-fixes) table.
+
+## Storage
+
+One sandboxed table, `memberships`:
+`{ memberRef, memberKind, resourceRef, relation, status?, createdAt }`, with
+the indexes `by_resource_relation` (`resourceRef`, `relation`) and `by_tuple`
+(`memberRef`, `resourceRef`, `relation`). The host reaches it only through the
+component's functions.
 
 ## vNext
 
 Transitive expansion (resolving a member of a group that is a member of an org
-to a member of the org — `expandMembers` / `resolve`) is **not** in this
-version. Edges are flat. It is planned for a future release.
+as a member of the org) is not in this version. Edges are flat.

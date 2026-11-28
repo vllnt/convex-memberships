@@ -1,5 +1,6 @@
 import { defineComponent } from "convex/server";
 
+/** Component definition. Mount it with `app.use(memberships)` in `convex/convex.config.ts`. */
 const component = defineComponent("memberships");
 
 // Nest official child components here, e.g.:
