@@ -2,13 +2,14 @@
  * Optional React front-end tooling for `@vllnt/convex-memberships`.
  *
  * Thin, tree-shakeable hooks over `convex/react`'s `useQuery`. Each hook takes
- * the **host app's** re-exported component function reference (the host owns its
- * `api`; this layer never imports it) plus the query args, and returns the
- * query result or `undefined` while it loads.
+ * a reference to a **host** query (the host owns its `api`; this layer never
+ * imports it) plus the query args, and returns the query result or `undefined`
+ * while it loads. That host query must wrap the component and authorize the
+ * caller: the hook sends its args from the client, so a plain re-export of a
+ * component query would let any client read any member's or resource's edges.
  *
  * `react` is an optional peer dependency — a backend-only consumer never
- * imports this entry. Only metadata derived from the host's own refs reaches the
- * client; the component holds no secrets to leak.
+ * imports this entry.
  *
  * @module
  */
@@ -18,8 +19,8 @@ import type { FunctionReference } from "convex/server";
 import type { MemberEntry, Page, ResourceEntry } from "../client/types.js";
 
 /**
- * A reference to the component's `isMember` query, as re-exported by the host
- * (e.g. `api.memberships.isMember`). Resolves whether a member relates to a
+ * A reference to the host's own `isMember` query (e.g. `api.memberships.isMember`):
+ * a host function that authorizes the caller, then calls the component. Resolves whether a member relates to a
  * resource, optionally under a specific relation.
  */
 export type IsMemberRef = FunctionReference<
@@ -30,8 +31,8 @@ export type IsMemberRef = FunctionReference<
 >;
 
 /**
- * A reference to the component's `members` query, as re-exported by the host
- * (e.g. `api.memberships.members`). Returns a page of resources a member
+ * A reference to the host's own `members` query (e.g. `api.memberships.members`):
+ * a host function that authorizes the caller, then calls the component. Returns a page of resources a member
  * relates to.
  */
 export type MembersRef = FunctionReference<
@@ -45,8 +46,8 @@ export type MembersRef = FunctionReference<
 >;
 
 /**
- * A reference to the component's `listMembers` query, as re-exported by the host
- * (e.g. `api.memberships.listMembers`). Returns a page of members of a resource,
+ * A reference to the host's own `listMembers` query (e.g. `api.memberships.listMembers`):
+ * a host function that authorizes the caller, then calls the component. Returns a page of members of a resource,
  * optionally filtered to one relation.
  */
 export type ListMembersRef = FunctionReference<
@@ -63,7 +64,7 @@ export type ListMembersRef = FunctionReference<
 /**
  * Reactively check whether `memberRef` relates to `resourceRef`.
  *
- * @param isMemberRef - the host's re-exported `isMember` query reference.
+ * @param isMemberRef - the host's authorizing `isMember` query reference.
  * @param args - `memberRef` and `resourceRef`; with `relation`, checks that
  * exact edge, without it checks any relation between the two.
  * @returns `true`/`false`, or `undefined` while the query loads.
@@ -87,7 +88,7 @@ export function useIsMember(
 /**
  * Reactively list the resources `memberRef` relates to (one page).
  *
- * @param membersRef - the host's re-exported `members` query reference.
+ * @param membersRef - the host's authorizing `members` query reference.
  * @param args - `memberRef` to resolve memberships for. The hook always requests
  * the first page (`{ numItems: 100, cursor: null }`) and offers no load-more.
  * @returns the resource-entry page, or `undefined` while the query loads.
@@ -111,7 +112,7 @@ export function useMembers(
  * Reactively list the members of `resourceRef` (one page), optionally filtered
  * to a single `relation`.
  *
- * @param listMembersRef - the host's re-exported `listMembers` query reference.
+ * @param listMembersRef - the host's authorizing `listMembers` query reference.
  * @param args - `resourceRef` to resolve members for, and an optional `relation`
  * filter. The hook always requests the first page
  * (`{ numItems: 100, cursor: null }`) and offers no load-more.

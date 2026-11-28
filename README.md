@@ -286,7 +286,8 @@ export function OwnerBadge(props: { userRef: string; orgId: string }) {
 }
 ```
 
-`isOwner` is `undefined` while the query loads.
+`isOwner` is `undefined` while the query loads. The badge works only for the
+signed-in user: for any other `userRef` the host query returns `false`.
 
 ## Errors and fixes
 
@@ -361,7 +362,9 @@ exist.
 - `@vllnt/convex-memberships/test` is TypeScript source that uses Vite's
   `import.meta.glob`. It needs `convex-test` and `vite` (for the `vite/client`
   types); the Vitest config shown under Testing also uses `vitest` and
-  `@edge-runtime/vm`.
+  `@edge-runtime/vm`. It is tested with `convex-test` 0.0.73, which itself
+  requires `convex` `^1.46.0`, while this package's peer range starts at
+  1.45.0.
 
 ## Testing
 
@@ -425,6 +428,8 @@ contract.
   tasks.
 - Its table is reachable only through the component's functions. The React
   hooks call host queries, so the host query decides what a client may read.
+  Do not re-export a component query as is for a hook: the hook's args come
+  from the client, so any client could read any resource's members.
 
 Report vulnerabilities as described in
 [SECURITY.md](https://github.com/vllnt/convex-memberships/blob/main/SECURITY.md).

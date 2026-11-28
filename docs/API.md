@@ -214,10 +214,12 @@ plus Convex's optional fields such as `maximumRowsRead`. See
 ## React
 
 Import from `@vllnt/convex-memberships/react`. `react` (`>=18`) is an optional
-peer dependency. Each hook calls `useQuery` from `convex/react` with a query
-reference the host exports (for example `api.memberships.isMember`) and returns
-`undefined` while it loads. The host query must authorize the requested member
-and resource.
+peer dependency. Each hook calls `useQuery` from `convex/react` with a
+reference to a host query (for example `api.memberships.isMember`) and returns
+`undefined` while it loads. That host query must wrap the component and
+authorize the caller for the requested member and resource. Do not re-export a
+component query as is: the hook's args come from the client, so any client
+could then read any resource's members.
 
 ### `useIsMember`
 
@@ -235,7 +237,7 @@ useMembers(membersRef: MembersRef, args: { memberRef: string }): Page<ResourceEn
 ```
 
 Requests `{ numItems: 100, cursor: null }`: the first page only, with no
-load-more. Use a paginated host query (or Convex `usePaginatedQuery`) for more.
+load-more. Use a paginated host query for more.
 
 ### `useListMembers`
 

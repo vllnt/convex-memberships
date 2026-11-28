@@ -131,8 +131,10 @@ export class Memberships {
 
   /**
    * Add the edge `(memberRef, resourceRef, relation)`, classified by
-   * `memberKind` and optionally stamped with an opaque `status`. Idempotent —
-   * returns the existing id if the exact tuple is already held.
+   * `memberKind` and optionally stamped with an opaque `status`. Idempotent on
+   * the tuple: if it already exists, returns the existing id and sets
+   * `memberKind` and `status` to the incoming values (omitting `status` clears
+   * a stored one).
    */
   add(
     ctx: RunMutationCtx,

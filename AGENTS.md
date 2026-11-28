@@ -95,7 +95,7 @@ sandboxed table is unreachable by the host except through the component's export
 - README, `llms.txt` and `docs/` follow the shared docs contract in
   `scripts/check-documentation.mjs`, run by `pnpm test:package` on the packed tarball. Every
   README `ts`/`tsx` example type-checks against the packed package; the Testing example also
-  runs under Vitest. Do not run Prettier on README.md: the Links block lines must stay unwrapped.
+  runs under Vitest.
 
 ## Generated code
 
