@@ -87,13 +87,13 @@ commit_tree
 run "packed test file is denied" 1
 grep -q 'DENY  src/index.test.ts' <<< "$LAST_OUTPUT" || { echo "FAIL test path not denied" >&2; failures=$((failures + 1)); }
 
-# Spec files with TypeScript module extensions
-for ext in mts cts; do
-  rm -f "$REPO/src/index.test.ts" "$REPO/src/"*.spec.*
-  printf 'test()\n' > "$REPO/src/index.spec.$ext"
+# Test and spec files with TypeScript module extensions
+for ext in test.mts test.cts spec.mts spec.cts; do
+  rm -f "$REPO/src/"*.test.* "$REPO/src/"*.spec.*
+  printf 'test()\n' > "$REPO/src/index.$ext"
   commit_tree
-  run "packed .spec.$ext file is denied" 1
-  grep -q "DENY  src/index.spec.$ext" <<< "$LAST_OUTPUT" || { echo "FAIL .spec.$ext path not denied" >&2; failures=$((failures + 1)); }
+  run "packed .$ext file is denied" 1
+  grep -q "DENY  src/index.$ext" <<< "$LAST_OUTPUT" || { echo "FAIL .$ext path not denied" >&2; failures=$((failures + 1)); }
 done
 
 # Denylist hit inside dist

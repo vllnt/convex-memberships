@@ -21,7 +21,8 @@ import {
 
 // Checks the npm tarball itself, not the working tree: the docs a coding agent
 // reads from node_modules must be inside and version-matched, nothing
-// contributor-only may ride along, the shipped `/test` helper must compile in a
+// contributor-only may ride along, every JS entry point must import in plain
+// Node, the shipped `/test` helper must compile in a
 // consumer project, and the installed docs must meet the shared docs contract
 // (README examples type-check against the package and the Testing example runs).
 
@@ -181,6 +182,34 @@ function checkConsumerTypes(temporary) {
 }
 
 /**
+ * Import every `exports` entry that has a JS target in plain Node, as a
+ * consumer's runtime would. Types-only entries and the TS-source `/test` are
+ * covered by the type-checks.
+ * @param {string} temporary @param {string} installed
+ */
+function checkRuntimeImports(temporary, installed) {
+  /** @type {{ name: string, exports: Record<string, unknown> }} */
+  const { name, exports } = JSON.parse(
+    readFileSync(join(installed, "package.json"), "utf8"),
+  );
+  const specifiers = Object.entries(exports)
+    .filter(([, target]) =>
+      typeof target === "string"
+        ? /\.[cm]?js$/.test(target)
+        : typeof target === "object" && target !== null && "default" in target,
+    )
+    .map(([key]) => `${name}${key.slice(1)}`);
+  for (const specifier of specifiers) {
+    execFileSync(
+      process.execPath,
+      ["--input-type=module", "-e", `await import(${JSON.stringify(specifier)});`],
+      { cwd: temporary, stdio: "inherit" },
+    );
+  }
+  console.log(`      imported ${specifiers.join(", ")}`);
+}
+
+/**
  * Docs contract on the installed package, then the README examples compiled in
  * a stub Convex host and the README Testing example run under Vitest.
  * @param {string} temporary @param {string} installed
@@ -246,6 +275,9 @@ try {
       `OK    tarball contents: ${packed.size} files, docs present, no contributor files`,
     );
     const installed = installConsumer(temporary, pack.filename);
+    step("every exports entry with a JS target imports at runtime in Node", () =>
+      checkRuntimeImports(temporary, installed),
+    );
     step("the packed @vllnt/convex-memberships/test compiles in a consumer project", () =>
       checkConsumerTypes(temporary),
     );
