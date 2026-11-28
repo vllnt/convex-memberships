@@ -9,10 +9,11 @@ Convex agent skills for common tasks can be installed by running `npx convex ai-
 <!-- convex-ai-end -->
 
 `example/convex/_generated/ai/guidelines.md` is generated and git-ignored, so a fresh clone does not
-have it. If it is missing, run `pnpm exec convex ai-files install` at the repository root (it reads
-`convex.json`, needs network access but no login or deployment, and also installs agent skills via
-`npx skills`), then delete the `CLAUDE.md` and `.claude/` it writes (`pnpm lint` fails while either
-exists), undo its rewrap of the section above, and commit none of its output.
+have it. If it is missing, first add `"aiFiles": { "skills": { "agents": [] } }` to `convex.json` so
+the CLI skips its unpinned `npx --yes skills@latest` step, then run
+`pnpm exec convex ai-files install` at the repository root (network access, no login or deployment),
+delete the `CLAUDE.md` it creates (`pnpm lint` fails while `CLAUDE.md` or `.claude/` exists), undo
+its rewrap of the section above and the `convex.json` edit, and commit none of its output.
 
 # @vllnt/convex-memberships
 
