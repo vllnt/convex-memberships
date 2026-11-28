@@ -16,15 +16,17 @@ bump: a `^0.1.0` range does not pull it in automatically.
 - `add`, `remove` and `setRelation` reject an empty `memberRef`, `resourceRef`, `relation`,
   `memberKind`, `status`, `fromRelation` or `toRelation` with
   `ConvexError({ code: "INVALID_ARGUMENT" })`. 0.1.0 accepted these and stored the empty value
-  as a real edge. Reactive queries still accept empty placeholder values and find nothing.
+  as a real edge. Queries still accept empty strings as placeholders; they find nothing unless
+  an edge stored by 0.1.0 with that empty value remains.
   **What to do:** never pass `""` to a write (including a `defaultRelation` or
   `defaultMemberKind` option). An edge stored with an empty `memberRef`, `resourceRef` or
   `relation` can no longer be removed or moved through `remove` or `setRelation`, so delete
   such edges while still on 0.1.0 (find them with `documents`).
 - The `by_member`, `by_resource` and `by_member_resource` indexes are gone (see Changed), so
-  pages are ordered differently. `members` and `documents` filtered by `memberRef` are ordered
-  by resource, then relation, then insertion time. `listMembers` without `relation` and
-  `documents` filtered by `resourceRef` are ordered by relation, then insertion time.
+  pages are ordered differently. `members`, and `documents` filtered by `memberRef` (and no
+  `resourceRef`), are ordered by resource, then relation, then insertion time. `listMembers`
+  without `relation` and `documents` filtered by `resourceRef` are ordered by relation, then
+  insertion time.
   `isMember` results and the set of rows returned do not change.
   **What to do:** do not rely on insertion order within those pages, and restart any
   pagination from `cursor: null` after the upgrade; do not reuse a cursor issued by 0.1.0.
@@ -39,6 +41,13 @@ bump: a `^0.1.0` range does not pull it in automatically.
 - `docs/API.md` lists the package entry points, the `useIsMember` hook, result ordering, and that
   `setRelation` rejects an empty `fromRelation` or `toRelation`.
 - README: "For coding agents" and "Related packages" sections.
+- Docs follow the shared agent-first layout: the README has When to use, API, Common tasks,
+  Errors and fixes, Limits and gotchas, Compatibility and Links sections; `docs/API.md` has one
+  heading per export; `llms.txt` adds When to use and the Ecosystem block; every public export
+  has a TSDoc summary; `package.json` has a new description and keywords.
+  `pnpm test:package` now runs the docs contract (`scripts/check-documentation.mjs`) on the
+  packed package: it type-checks every README TypeScript example against it and runs the
+  Testing example under Vitest.
 
 ### Fixed
 

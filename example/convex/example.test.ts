@@ -120,6 +120,19 @@ describe("memberships — add", () => {
     expect(docs.page[0].status).toBe("invited");
     expect(typeof docs.page[0].createdAt).toBe("number");
   });
+
+  test("re-adding without status clears a stored status and keeps the id", async () => {
+    const t = setup();
+    const edge = { memberRef: "user_1", resourceRef: "org_1", relation: "member" };
+    const id = await t.mutation(api.example.add, { ...edge, status: "invited" });
+    expect(await t.mutation(api.example.add, edge)).toBe(id);
+    const docs = await t.query(api.example.documents, {
+      resourceRef: "org_1",
+      paginationOpts: PAGE,
+    });
+    expect(docs.page).toHaveLength(1);
+    expect(docs.page[0].status).toBeUndefined();
+  });
 });
 
 describe("memberships — remove", () => {

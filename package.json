@@ -1,7 +1,7 @@
 {
   "name": "@vllnt/convex-memberships",
   "version": "0.2.0",
-  "description": "Auth-agnostic membership and relationship graph (ReBAC tuples), as a Convex component",
+  "description": "TypeScript Convex component for memberships and roles: a flat ReBAC relationship graph with membership checks, paginated member lists and React hooks.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.34.9",
@@ -109,10 +109,14 @@
   "keywords": [
     "convex",
     "convex-component",
+    "typescript",
     "memberships",
+    "roles",
     "rebac",
     "relationship-graph",
-    "auth-agnostic"
+    "organizations",
+    "teams",
+    "react-hooks"
   ],
   "peerDependenciesMeta": {
     "react": {

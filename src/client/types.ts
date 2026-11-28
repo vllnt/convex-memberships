@@ -62,8 +62,8 @@ export type { PaginationOptions };
 
 /** Construction options for the {@link Memberships} client. */
 export interface MembershipsOptions {
-  /** Relation applied when a call omits `relation`. Default `"member"`. */
+  /** Relation `add` and `remove` use when `relation` is omitted. Default `"member"`. */
   defaultRelation?: string;
-  /** Member kind applied when a call omits `memberKind`. Default `"user"`. */
+  /** Member kind `add` uses when `memberKind` is omitted. Default `"user"`. */
   defaultMemberKind?: MemberKind;
 }

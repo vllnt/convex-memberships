@@ -77,9 +77,11 @@ sandboxed table is unreachable by the host except through the component's export
 
 | Changed | Update |
 |---------|--------|
-| API (client methods, args, returns) | `docs/API.md`, README API Reference table, `llms.txt` |
-| Schema / indexes | README Architecture section, `docs/API.md` |
-| `./react` hooks added/changed | README React section, `docs/API.md` React section, `llms.txt` |
+| API (client methods, args, returns) | `docs/API.md`, README API table, `llms.txt` |
+| Error code or `setRelation` reason | README Errors and fixes table, `docs/API.md` Errors section, `llms.txt` |
+| Limits, defaults, ordering | README Limits and gotchas, `docs/API.md`, `llms.txt` |
+| Schema / indexes | `docs/API.md` Storage section, README Limits and gotchas (page order) |
+| `./react` hooks added/changed | README API table, `docs/API.md` React section, `llms.txt` |
 | Version bumped | `CHANGELOG.md`, README badges |
 | `llms.txt` links changed | run `pnpm generate:llms` to check that local link targets exist (`llms.txt` is curated by hand) |
 
@@ -90,6 +92,10 @@ sandboxed table is unreachable by the host except through the component's export
 - Host data via typed generics / host-supplied validator keyed by an opaque ref — never `v.any()` dumps.
 - 100% test coverage is BLOCKING (`vitest.config.mts` thresholds).
 - Runtime deps: only official `@convex-dev/*` + `@vllnt/*`.
+- README, `llms.txt` and `docs/` follow the shared docs contract in
+  `scripts/check-documentation.mjs`, run by `pnpm test:package` on the packed tarball. Every
+  README `ts`/`tsx` example type-checks against the packed package; the Testing example also
+  runs under Vitest. Do not run Prettier on README.md: the Links block lines must stay unwrapped.
 
 ## Generated code
 

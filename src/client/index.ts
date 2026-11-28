@@ -106,6 +106,8 @@ interface RunMutationCtx {
  * Consumer-facing client for the flat ReBAC relationship graph. The host owns
  * identity, the rich entity, and auth; it passes opaque `memberRef` /
  * `resourceRef` strings and an optional `relation` into the client.
+ *
+ * @see https://oss.vllnt.com/packages/convex-memberships
  */
 export class Memberships {
   private readonly defaultRelation: string;
