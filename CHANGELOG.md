@@ -4,7 +4,30 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.1] - Unreleased
+## [Unreleased]
+
+## [0.2.0] - 2026-11-28
+
+0.2.0 has two breaking changes for 0.1.0 users. They are why this release is a minor
+bump: a `^0.1.0` range does not pull it in automatically.
+
+### Breaking
+
+- `add`, `remove` and `setRelation` reject an empty `memberRef`, `resourceRef`, `relation`,
+  `memberKind`, `status`, `fromRelation` or `toRelation` with
+  `ConvexError({ code: "INVALID_ARGUMENT" })`. 0.1.0 accepted these and stored the empty value
+  as a real edge. Reactive queries still accept empty placeholder values and find nothing.
+  **What to do:** never pass `""` to a write (including a `defaultRelation` or
+  `defaultMemberKind` option). An edge stored with an empty `memberRef`, `resourceRef` or
+  `relation` can no longer be removed or moved through `remove` or `setRelation`, so delete
+  such edges while still on 0.1.0 (find them with `documents`).
+- The `by_member`, `by_resource` and `by_member_resource` indexes are gone (see Changed), so
+  pages are ordered differently. `members` and `documents` filtered by `memberRef` are ordered
+  by resource, then relation, then insertion time. `listMembers` without `relation` and
+  `documents` filtered by `resourceRef` are ordered by relation, then insertion time.
+  `isMember` results and the set of rows returned do not change.
+  **What to do:** do not rely on insertion order within those pages, and restart any
+  pagination from `cursor: null` after the upgrade; do not reuse a cursor issued by 0.1.0.
 
 ### Added
 
@@ -19,10 +42,8 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
-- `add`, `remove` and `setRelation` reject an empty `memberRef`, `resourceRef`, `relation`,
-  `memberKind`, `status`, `fromRelation` or `toRelation` with
-  `ConvexError({ code: "INVALID_ARGUMENT" })`. Previously an empty relation or ref was stored as a
-  real edge. Reactive queries still accept empty placeholder values and find nothing.
+- An empty ref, relation, `memberKind` or `status` is no longer stored as a real edge (see
+  Breaking).
 - `@vllnt/convex-memberships/test` now type-checks under `moduleResolution: nodenext` (explicit
   `.js` relative imports, Vite client types referenced).
 - The published tarball no longer includes test files.
@@ -34,10 +55,8 @@ All notable changes to this project are documented here. The format is based on
 
 - Drop the prefix-duplicate `by_member`, `by_resource` and `by_member_resource` indexes. Their
   queries now use the `by_tuple` and `by_resource_relation` prefixes, so each write updates 2
-  indexes instead of 5. Results are unchanged; `members`, `listMembers` (no `relation`) and
-  `documents` pages are now ordered by the remaining index fields (`members`: resource then relation;
-  `listMembers`: relation) before insertion time, and a pagination cursor issued before the
-  upgrade must be restarted.
+  indexes instead of 5. The rows returned are unchanged; page order and old cursors are not (see
+  Breaking).
 - Adopt pnpm 10 with a release-age gate; releases are published only from CI with npm trusted
   publishing and provenance. Pin the deepmerge-ts override to 8.0.2.
 - Document the error codes, that role/permission checks and last-owner protection are the host's

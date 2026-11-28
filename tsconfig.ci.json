@@ -1,5 +1,14 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["src/shared.ts", "src/client/**/*"],
+  "compilerOptions": {
+    // Type-check only (no emit), so files outside src/ may join the program.
+    "rootDir": "."
+  },
+  // host_schema.test.ts: `register(t)` from a host schema with its own tables.
+  "include": [
+    "src/shared.ts",
+    "src/client/**/*",
+    "example/convex/host_schema.test.ts"
+  ],
   "exclude": ["node_modules", "dist", "src/component/**/*", "src/test.ts"]
 }
